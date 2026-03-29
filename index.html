@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>KartTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --red:#E53935;--black:#212121;--white:#FFFFFF;
+  --gray:#757575;--gray2:#9e9e9e;
+  --yellow:#FFEB3B;--orange:#FF9800;--purple:#9C27B0;--green:#4CAF50;
+  --s1:#1a1a1a;--s2:#252525;--s3:#2e2e2e;--s4:#363636;
+  --border:rgba(255,255,255,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Inter',sans-serif;background:var(--black);color:var(--white);min-height:100vh;}
+
+.header{background:var(--black);border-bottom:1px solid var(--border);padding:0 14px;height:54px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;}
+.logo{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;flex:1;letter-spacing:1px;}
+.logo span{color:var(--red);}
+.icon-btn{width:34px;height:34px;background:var(--s3);border:1px solid var(--border);color:var(--white);border-radius:50%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;}
+.icon-btn:hover{background:var(--s4);}
+
+/* PAGES */
+.page{display:none;padding:12px;padding-bottom:100px;}
+.page.active{display:block;}
+
+/* CARDS */
+.card{background:var(--s2);border:1px solid var(--border);border-radius:11px;margin-bottom:8px;overflow:hidden;transition:border-color .15s,transform .1s;}
+.card.clickable{cursor:pointer;}
+.card.clickable:hover{border-color:rgba(255,255,255,0.16);transform:translateY(-1px);}
+.card.clickable:active{transform:scale(0.985);}
+
+.track-card{display:flex;align-items:stretch;}
+.track-thumb{width:74px;flex-shrink:0;background:var(--s3);overflow:hidden;min-height:74px;}
+.track-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.track-thumb-ph{width:100%;height:100%;min-height:74px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--gray);}
+.track-info{flex:1;padding:10px;}
+.track-name{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;margin-bottom:1px;}
+.track-sub{font-size:11px;color:var(--gray2);margin-bottom:4px;}
+
+/* BANNER */
+.track-banner{width:100%;height:120px;border-radius:10px;overflow:hidden;margin-bottom:9px;position:relative;border:1px solid var(--border);background:var(--s2);}
+.track-banner img{width:100%;height:100%;object-fit:cover;display:block;}
+.track-banner-ph{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--gray);}
+.track-banner-ph span{font-size:30px;}
+.track-banner-ph p{font-size:11px;}
+.banner-name{position:absolute;bottom:8px;left:10px;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;text-shadow:0 1px 8px rgba(0,0,0,.9);}
+
+/* BADGES */
+.badges{display:flex;gap:4px;flex-wrap:wrap;}
+.badge{font-size:10px;font-weight:600;padding:2px 6px;border-radius:20px;}
+.b-red{background:rgba(229,57,53,.18);color:#ef9a9a;border:1px solid rgba(229,57,53,.3);}
+.b-gray{background:rgba(255,255,255,.06);color:var(--gray2);border:1px solid var(--border);}
+.b-purple{background:rgba(156,39,176,.18);color:#ce93d8;border:1px solid rgba(156,39,176,.3);}
+.b-yellow{background:rgba(255,235,59,.15);color:#fff176;border:1px solid rgba(255,235,59,.3);}
+.b-green{background:rgba(76,175,80,.15);color:#a5d6a7;border:1px solid rgba(76,175,80,.3);}
+.b-orange{background:rgba(255,152,0,.15);color:#ffcc80;border:1px solid rgba(255,152,0,.3);}
+
+/* STATS */
+.stat-row{display:grid;gap:6px;margin-bottom:8px;}
+.g2{grid-template-columns:1fr 1fr;}
+.g3{grid-template-columns:1fr 1fr 1fr;}
+.g4{grid-template-columns:repeat(4,1fr);}
+.stat-card{background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:9px 7px;text-align:center;}
+.sv{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;}
+.sl{font-size:10px;color:var(--gray2);margin-top:1px;}
+.sv-purple{color:var(--purple);}
+.sv-red{color:var(--red);}
+.sv-green{color:var(--green);}
+.sv-orange{color:var(--orange);}
+
+/* CHART */
+.chart-card{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;}
+.chart-title{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:var(--gray2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;}
+
+/* SECTION TITLE */
+.sec-title{font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin:11px 0 5px;}
+
+/* RUN ITEM */
+.run-item{background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:8px 11px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;}
+.run-item.best-run{border-color:rgba(156,39,176,.5);background:rgba(156,39,176,.07);}
+.run-item.clickable{cursor:pointer;transition:border-color .15s;}
+.run-item.clickable:hover{border-color:rgba(255,255,255,.15);}
+.run-num{font-size:11px;color:var(--gray2);}
+.run-note{font-size:10px;color:var(--gray);margin-top:1px;}
+.run-time{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;}
+.rt-purple{color:var(--purple);}
+.lap-item{background:var(--s3);border-radius:7px;padding:6px 10px;margin-bottom:3px;display:flex;justify-content:space-between;align-items:center;}
+.lap-time{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
+.lap-best{color:var(--purple);}
+
+/* ACTION ROW */
+.action-row{display:flex;gap:5px;margin-top:4px;}
+.act-btn{font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--s3);color:var(--gray2);cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
+.act-btn:hover{border-color:rgba(255,255,255,.2);color:var(--white);}
+.act-btn.danger:hover{border-color:rgba(229,57,53,.5);color:#ef9a9a;}
+.act-btn.edit-btn:hover{border-color:rgba(255,235,59,.4);color:var(--yellow);}
+
+/* FAB — higher to clear bottom nav */
+.fab{position:fixed;bottom:72px;right:16px;width:50px;height:50px;background:var(--red);color:white;border:none;border-radius:50%;font-size:22px;cursor:pointer;box-shadow:0 4px 16px rgba(229,57,53,.5);display:flex;align-items:center;justify-content:center;transition:transform .15s;z-index:80;}
+.fab:hover{transform:scale(1.08);}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:58px;background:var(--s2);border-top:1px solid var(--border);display:flex;z-index:90;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--gray);font-size:10px;border:none;background:none;transition:color .15s;}
+.nav-item.active{color:var(--red);}
+.nav-item span{font-size:19px;}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:flex-end;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--s2);border:1px solid var(--border);border-radius:20px 20px 0 0;padding:5px 16px 26px;width:100%;max-height:93vh;overflow-y:auto;animation:slideUp .22s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:32px;height:4px;background:var(--s3);border-radius:2px;margin:8px auto 12px;}
+.modal-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;margin-bottom:14px;}
+
+.fg{margin-bottom:11px;}
+label{display:block;font-size:10px;color:var(--gray2);margin-bottom:4px;font-weight:500;letter-spacing:.3px;text-transform:uppercase;}
+input,textarea{width:100%;padding:9px 11px;border:1.5px solid rgba(255,255,255,.1);border-radius:8px;font-size:14px;outline:none;background:var(--s3);color:var(--white);transition:border-color .2s;font-family:'Inter',sans-serif;}
+input:focus,textarea:focus{border-color:var(--red);}
+input:disabled{opacity:.4;}
+textarea{resize:none;height:58px;}
+
+.time-big{font-family:'Rajdhani',sans-serif!important;font-size:26px!important;font-weight:700!important;letter-spacing:3px!important;text-align:center!important;font-variant-numeric:tabular-nums!important;}
+.time-big::placeholder{color:rgba(255,255,255,.2);}
+
+.w-row{display:flex;gap:5px;flex-wrap:wrap;}
+.w-chip{padding:5px 11px;border:1.5px solid rgba(255,255,255,.1);border-radius:20px;font-size:12px;cursor:pointer;transition:all .15s;background:var(--s3);color:var(--gray2);}
+.w-chip.sel{border-color:var(--red);background:rgba(229,57,53,.15);color:var(--white);}
+
+.btn-row{display:flex;gap:7px;margin-top:5px;}
+.btn{flex:1;padding:11px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Rajdhani',sans-serif;letter-spacing:.4px;transition:opacity .15s;}
+.btn:hover{opacity:.85;}
+.btn-p{background:var(--red);color:white;}
+.btn-s{background:var(--s3);color:var(--gray2);border:1px solid var(--border);}
+
+.photo-zone{border:2px dashed rgba(255,255,255,.12);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:border-color .2s;position:relative;overflow:hidden;}
+.photo-zone:hover{border-color:var(--red);}
+.photo-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;}
+#tpp{width:100%;height:90px;object-fit:cover;border-radius:6px;margin-top:7px;display:none;}
+
+.mode-tabs{display:flex;gap:5px;margin-bottom:12px;}
+.mode-tab{flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(255,255,255,.1);background:var(--s3);color:var(--gray2);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;font-family:'Rajdhani',sans-serif;}
+.mode-tab.active{border-color:var(--red);background:rgba(229,57,53,.15);color:var(--white);}
+
+.laps-list{display:flex;flex-direction:column;gap:5px;margin-bottom:8px;}
+.lap-input-row{display:flex;gap:5px;align-items:center;}
+.lap-n{font-size:11px;color:var(--gray2);min-width:20px;text-align:center;flex-shrink:0;}
+.lap-input-row input{font-family:'Rajdhani',sans-serif!important;font-size:15px!important;font-weight:600!important;letter-spacing:1px!important;text-align:center!important;}
+.del-lap{background:none;border:none;color:rgba(255,255,255,.18);font-size:13px;cursor:pointer;padding:4px;transition:color .15s;flex-shrink:0;}
+.del-lap:hover{color:var(--red);}
+.add-lap-btn{width:100%;padding:8px;border:1.5px dashed rgba(255,255,255,.1);border-radius:7px;background:transparent;color:var(--gray2);font-size:12px;cursor:pointer;transition:all .15s;}
+.add-lap-btn:hover{border-color:var(--red);color:var(--white);}
+
+/* RIGHTS */
+.rights-bar{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:8px;}
+.rights-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+.rights-title{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;color:var(--gray2);text-transform:uppercase;letter-spacing:.5px;}
+.rights-achieved{font-size:10px;color:var(--green);font-weight:600;}
+.rights-gap{display:flex;justify-content:space-between;align-items:center;}
+.rights-target{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--yellow);}
+.rights-diff{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;}
+.rights-diff.close{color:var(--orange);}
+.rights-diff.far{color:var(--gray2);}
+.rights-diff.done{color:var(--green);}
+.rights-progress{height:3px;background:var(--s3);border-radius:2px;margin-top:7px;overflow:hidden;}
+.rights-fill{height:100%;border-radius:2px;transition:width .5s ease;}
+
+/* STATS PAGE */
+.stats-hero{background:linear-gradient(135deg,rgba(229,57,53,.12),rgba(156,39,176,.08));border:1px solid rgba(229,57,53,.2);border-radius:11px;padding:16px;margin-bottom:10px;text-align:center;}
+.stats-hero-num{font-family:'Rajdhani',sans-serif;font-size:44px;font-weight:700;color:var(--red);}
+.stats-hero-label{font-size:11px;color:var(--gray2);text-transform:uppercase;letter-spacing:.5px;}
+
+/* PROGRESS */
+.prog-hero{background:linear-gradient(135deg,rgba(229,57,53,.12),rgba(156,39,176,.08));border:1px solid rgba(229,57,53,.2);border-radius:10px;padding:15px;margin-bottom:9px;text-align:center;}
+.prog-rec{font-family:'Rajdhani',sans-serif;font-size:34px;font-weight:700;color:var(--purple);}
+.prog-lbl{font-size:10px;color:var(--gray2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.improve{font-size:12px;font-weight:600;margin-top:5px;}
+.improve.good{color:#66bb6a;}
+.improve.bad{color:var(--red);}
+
+.empty{text-align:center;padding:44px 20px;color:var(--gray);}
+.empty-icon{font-size:42px;margin-bottom:8px;opacity:.5;}
+.empty-text{font-size:13px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <button class="icon-btn" id="back-btn" style="display:none" onclick="goBack()">←</button>
+  <div class="logo" id="header-title">KART<span>TRACK</span></div>
+</div>
+
+<div class="page active" id="page-tracks">
+  <div id="tracks-list"></div>
+  <div class="empty" id="tracks-empty" style="display:none"><div class="empty-icon">🏁</div><div class="empty-text">Нет трасс. Нажми + чтобы добавить</div></div>
+  <button class="fab" onclick="openModal('mt')">+</button>
+</div>
+
+<div class="page" id="page-sessions">
+  <div id="sessions-list"></div>
+  <div class="empty" id="sessions-empty" style="display:none"><div class="empty-icon">📅</div><div class="empty-text">Нет сессий. Нажми + чтобы добавить</div></div>
+  <button class="fab" onclick="openModal('ms')">+</button>
+</div>
+
+<div class="page" id="page-runs">
+  <div id="runs-content"></div>
+  <button class="fab" onclick="openModal('mr')">+</button>
+</div>
+
+<div class="page" id="page-run-detail">
+  <div id="run-detail-content"></div>
+</div>
+
+<div class="page" id="page-progress">
+  <div id="progress-content"></div>
+</div>
+
+<div class="page" id="page-stats">
+  <div id="stats-content"></div>
+</div>
+
+<div class="bottom-nav" id="bottom-nav">
+  <button class="nav-item active" id="nav-tracks" onclick="switchTab('tracks')"><span>🏁</span>Трассы</button>
+  <button class="nav-item" id="nav-stats" onclick="switchTab('stats')"><span>📊</span>Статистика</button>
+</div>
+
+<!-- MODAL: TRACK -->
+<div class="modal-overlay" id="mt">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="mt-title">Новая трасса</div>
+    <div class="fg"><label>Название</label><input type="text" id="tn" placeholder="СК Питер"></div>
+    <div class="fg"><label>Город</label><input type="text" id="tc" placeholder="Санкт-Петербург"></div>
+    <div class="fg"><label>Длина круга (м)</label><input type="number" id="tl" placeholder="800"></div>
+    <div class="fg">
+      <label>Время для получения прав (мм:сс.ммм)</label>
+      <input class="time-big" type="text" id="tr" placeholder="00:00.000" maxlength="9" inputmode="numeric" oninput="fmtT(this)">
+      <div style="margin-top:5px">
+        <label style="flex-direction:row;display:flex;align-items:center;gap:6px;text-transform:none;font-size:11px;cursor:pointer">
+          <input type="checkbox" id="tr-none" onchange="toggleRN(this)" style="width:auto;padding:0;background:none;border:none"> Нет времени на права на этой трассе
+        </label>
+      </div>
+    </div>
+    <div class="fg">
+      <label>Фото трассы</label>
+      <div class="photo-zone" onclick="document.getElementById('tpi').click()">
+        <div style="font-size:22px;margin-bottom:2px">📸</div>
+        <div style="font-size:11px;color:var(--gray2)">Нажми чтобы загрузить фото</div>
+        <input type="file" id="tpi" accept="image/*" onchange="previewPhoto(this)">
+        <img id="tpp">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('mt')">Отмена</button>
+      <button class="btn btn-p" onclick="saveTrack()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SESSION -->
+<div class="modal-overlay" id="ms">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="ms-title">Новая сессия</div>
+    <div class="fg"><label>Дата</label><input type="date" id="sd"></div>
+    <div class="fg">
+      <label>Погода</label>
+      <div class="w-row">
+        <div class="w-chip" onclick="selW(this,'☀️ Сухо')">☀️ Сухо</div>
+        <div class="w-chip" onclick="selW(this,'🌤️ Облачно')">🌤️ Облачно</div>
+        <div class="w-chip" onclick="selW(this,'🌧️ Дождь')">🌧️ Дождь</div>
+        <div class="w-chip" onclick="selW(this,'❄️ Холодно')">❄️ Холодно</div>
+      </div>
+    </div>
+    <div class="fg"><label>Заметки</label><textarea id="sn" placeholder="Настройки карта, ощущения..."></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('ms')">Отмена</button>
+      <button class="btn btn-p" onclick="saveSession()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RUN -->
+<div class="modal-overlay" id="mr">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="mr-title">Новый заезд</div>
+    <div class="fg"><label>Карт</label><input type="text" id="rk" placeholder="Karting Pro #12"></div>
+    <div class="fg">
+      <label>Режим ввода</label>
+      <div class="mode-tabs">
+        <div class="mode-tab active" id="mode-best" onclick="setMode('best')">Лучший круг</div>
+        <div class="mode-tab" id="mode-laps" onclick="setMode('laps')">Все круги</div>
+      </div>
+    </div>
+    <div id="sec-best">
+      <div class="fg"><label>Лучший круг (мм:сс.ммм)</label><input class="time-big" type="text" id="rt" placeholder="00:00.000" maxlength="9" inputmode="numeric" oninput="fmtT(this)"></div>
+      <div class="fg"><label>Кругов в заезде</label><input type="number" id="rl" placeholder="10" min="1"></div>
+    </div>
+    <div id="sec-laps" style="display:none">
+      <label style="font-size:10px;color:var(--gray2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px;display:block">Времена кругов (мм:сс.ммм)</label>
+      <div class="laps-list" id="laps-list"></div>
+      <button class="add-lap-btn" onclick="addLapInput()">+ Добавить круг</button>
+    </div>
+    <div class="fg" style="margin-top:9px"><label>Заметки</label><input type="text" id="rn" placeholder="Скользко на выходе из 3-го..."></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('mr')">Отмена</button>
+      <button class="btn btn-p" onclick="saveRun()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let D={tracks:[],sessions:[],runs:[]};
+let cTrack=null,cSession=null,cRun=null;
+let selWeather='',nav=[],runMode='best';
+let charts={},photoData=null,lapInputs=[];
+let editingTrackId=null,editingSessionId=null,editingRunId=null;
+
+function save(){try{localStorage.setItem('kk5',JSON.stringify(D));}catch(e){}}
+function load(){try{const d=localStorage.getItem('kk5');if(d)D=JSON.parse(d);}catch(e){}}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
+
+function fmtT(inp){
+  let r=inp.value.replace(/\D/g,'');
+  if(r.length>8)r=r.slice(0,8);
+  let o='';
+  if(r.length<=2)o=r;
+  else if(r.length<=4)o=r.slice(0,2)+':'+r.slice(2);
+  else o=r.slice(0,2)+':'+r.slice(2,4)+'.'+r.slice(4);
+  inp.value=o;
+}
+function t2s(t){
+  if(!t)return NaN;
+  t=t.trim().replace(',','.');
+  if(t.includes(':'))return parseFloat(t.split(':')[0])*60+parseFloat(t.split(':')[1]||0);
+  return parseFloat(t);
+}
+function s2t(s){
+  if(isNaN(s)||s==null)return '--';
+  const m=Math.floor(s/60),sec=(s%60).toFixed(3).padStart(6,'0');
+  return `${m}:${sec}`;
+}
+
+function toggleRN(cb){
+  const el=document.getElementById('tr');
+  el.disabled=cb.checked;el.style.opacity=cb.checked?.4:1;
+}
+function previewPhoto(inp){
+  if(!inp.files||!inp.files[0])return;
+  const r=new FileReader();
+  r.onload=e=>{photoData=e.target.result;const p=document.getElementById('tpp');p.src=photoData;p.style.display='block';};
+  r.readAsDataURL(inp.files[0]);
+}
+
+function setMode(m){
+  runMode=m;
+  document.getElementById('mode-best').classList.toggle('active',m==='best');
+  document.getElementById('mode-laps').classList.toggle('active',m==='laps');
+  document.getElementById('sec-best').style.display=m==='best'?'':'none';
+  document.getElementById('sec-laps').style.display=m==='laps'?'':'none';
+  if(m==='laps'&&lapInputs.length===0){addLapInput();addLapInput();}
+}
+function addLapInput(){lapInputs.push('');renderLapInputs();}
+function removeLapInput(i){lapInputs.splice(i,1);renderLapInputs();}
+function renderLapInputs(){
+  document.getElementById('laps-list').innerHTML=lapInputs.map((v,i)=>`
+    <div class="lap-input-row">
+      <span class="lap-n">${i+1}</span>
+      <input type="text" placeholder="00:00.000" maxlength="9" inputmode="numeric"
+        value="${v}" oninput="fmtT(this);lapInputs[${i}]=this.value">
+      ${lapInputs.length>1?`<button class="del-lap" onclick="removeLapInput(${i})">✕</button>`:''}
+    </div>`).join('');
+}
+
+// MODALS
+function openModal(id){
+  if(id==='mt'){
+    editingTrackId=null;photoData=null;
+    document.getElementById('mt-title').textContent='Новая трасса';
+    const p=document.getElementById('tpp');p.style.display='none';p.src='';
+    document.getElementById('tpi').value='';
+    ['tn','tc','tl','tr'].forEach(x=>{const el=document.getElementById(x);el.value='';el.disabled=false;el.style.opacity=1;});
+    document.getElementById('tr-none').checked=false;
+  }
+  if(id==='ms'){
+    editingSessionId=null;selWeather='';
+    document.getElementById('ms-title').textContent='Новая сессия';
+    document.getElementById('sd').value=new Date().toISOString().slice(0,10);
+    document.querySelectorAll('.w-chip').forEach(c=>c.classList.remove('sel'));
+    document.getElementById('sn').value='';
+  }
+  if(id==='mr'){
+    editingRunId=null;runMode='best';lapInputs=[];
+    document.getElementById('mr-title').textContent='Новый заезд';
+    ['rk','rt','rl','rn'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('mode-best').classList.add('active');document.getElementById('mode-laps').classList.remove('active');
+    document.getElementById('sec-best').style.display='';document.getElementById('sec-laps').style.display='none';
+    document.getElementById('laps-list').innerHTML='';
+  }
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function selW(el,v){document.querySelectorAll('.w-chip').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');selWeather=v;}
+
+// EDIT MODALS
+function editTrack(tid){
+  const t=D.tracks.find(x=>x.id===tid);if(!t)return;
+  editingTrackId=tid;photoData=t.photo||null;
+  document.getElementById('mt-title').textContent='Редактировать трассу';
+  document.getElementById('tn').value=t.name||'';
+  document.getElementById('tc').value=t.city||'';
+  document.getElementById('tl').value=t.length||'';
+  const tr=document.getElementById('tr');
+  tr.value=t.rightsTime?s2t(t.rightsTime):'';
+  tr.disabled=!!t.noRights;tr.style.opacity=t.noRights?.4:1;
+  document.getElementById('tr-none').checked=!!t.noRights;
+  const p=document.getElementById('tpp');
+  if(t.photo){p.src=t.photo;p.style.display='block';}else{p.style.display='none';p.src='';}
+  document.getElementById('mt').classList.add('open');
+}
+function editSession(sid){
+  const s=D.sessions.find(x=>x.id===sid);if(!s)return;
+  editingSessionId=sid;selWeather=s.weather||'';
+  document.getElementById('ms-title').textContent='Редактировать сессию';
+  document.getElementById('sd').value=s.date||'';
+  document.querySelectorAll('.w-chip').forEach(c=>{c.classList.toggle('sel',c.textContent.trim()===selWeather);});
+  document.getElementById('sn').value=s.notes||'';
+  document.getElementById('ms').classList.add('open');
+}
+function editRun(rid){
+  const r=D.runs.find(x=>x.id===rid);if(!r)return;
+  editingRunId=rid;lapInputs=[];
+  document.getElementById('mr-title').textContent='Редактировать заезд';
+  document.getElementById('rk').value=r.kart||'';
+  document.getElementById('rn').value=r.notes||'';
+  const hasLaps=r.lapTimes&&r.lapTimes.length>0;
+  if(hasLaps){
+    lapInputs=r.lapTimes.map(lt=>s2t(lt));
+    setMode('laps');renderLapInputs();
+  } else {
+    document.getElementById('rt').value=r.bestStr||'';
+    document.getElementById('rl').value=r.laps||'';
+    setMode('best');
+  }
+  document.getElementById('mr').classList.add('open');
+}
+
+// SAVE (create or update)
+function saveTrack(){
+  const name=document.getElementById('tn').value.trim();
+  if(!name)return alert('Введи название трассы');
+  const noRights=document.getElementById('tr-none').checked;
+  const rightsTime=noRights?null:(t2s(document.getElementById('tr').value)||null);
+  const city=document.getElementById('tc').value.trim();
+  const length=parseInt(document.getElementById('tl').value)||0;
+  const photo=photoData||(editingTrackId?D.tracks.find(t=>t.id===editingTrackId)?.photo:null)||null;
+  if(editingTrackId){
+    const t=D.tracks.find(x=>x.id===editingTrackId);
+    Object.assign(t,{name,city,length,photo,rightsTime,noRights});
+  } else {
+    D.tracks.push({id:uid(),name,city,length,photo,rightsTime,noRights,createdAt:Date.now()});
+  }
+  save();closeModal('mt');photoData=null;
+  if(editingTrackId&&cTrack&&cTrack.id===editingTrackId){cTrack=D.tracks.find(t=>t.id===editingTrackId);renderSessions();}
+  else renderTracks();
+}
+function saveSession(){
+  const date=document.getElementById('sd').value;
+  if(!date)return alert('Выбери дату');
+  const notes=document.getElementById('sn').value.trim();
+  if(editingSessionId){
+    const s=D.sessions.find(x=>x.id===editingSessionId);
+    Object.assign(s,{date,weather:selWeather,notes});
+  } else {
+    D.sessions.push({id:uid(),trackId:cTrack.id,date,weather:selWeather,notes,createdAt:Date.now()});
+  }
+  save();closeModal('ms');renderSessions();
+}
+function saveRun(){
+  const kart=document.getElementById('rk').value.trim();
+  const notes=document.getElementById('rn').value.trim();
+  let bestSec=null,lapTimes=[],laps=0;
+  if(runMode==='best'){
+    const ts=document.getElementById('rt').value.trim();
+    if(!ts)return alert('Введи время круга');
+    bestSec=t2s(ts);
+    if(isNaN(bestSec)||bestSec<=0)return alert('Формат: 01:23.456');
+    laps=parseInt(document.getElementById('rl').value)||0;
+  } else {
+    const filled=lapInputs.filter(v=>v.trim());
+    if(!filled.length)return alert('Добавь хотя бы один круг');
+    lapTimes=filled.map(v=>t2s(v)).filter(s=>!isNaN(s)&&s>0);
+    if(!lapTimes.length)return alert('Неверный формат времени');
+    bestSec=Math.min(...lapTimes);laps=lapTimes.length;
+  }
+  if(editingRunId){
+    const r=D.runs.find(x=>x.id===editingRunId);
+    Object.assign(r,{bestSec,bestStr:s2t(bestSec),lapTimes,laps,kart,notes});
+  } else {
+    D.runs.push({id:uid(),sessionId:cSession.id,bestSec,bestStr:s2t(bestSec),lapTimes,laps,kart,notes,createdAt:Date.now()});
+  }
+  save();closeModal('mr');renderRuns();
+}
+
+function delTrack(tid){
+  if(!confirm('Удалить трассу и все данные?'))return;
+  const sids=D.sessions.filter(s=>s.trackId===tid).map(s=>s.id);
+  D.tracks=D.tracks.filter(t=>t.id!==tid);D.sessions=D.sessions.filter(s=>s.trackId!==tid);D.runs=D.runs.filter(r=>!sids.includes(r.sessionId));
+  save();renderTracks();
+}
+function delSession(sid){
+  if(!confirm('Удалить сессию?'))return;
+  D.sessions=D.sessions.filter(s=>s.id!==sid);D.runs=D.runs.filter(r=>r.sessionId!==sid);
+  save();renderSessions();
+}
+function delRun(rid){
+  if(!confirm('Удалить заезд?'))return;
+  D.runs=D.runs.filter(r=>r.id!==rid);save();renderRuns();
+}
+
+// NAV
+function showPage(n){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+n).classList.add('active');}
+function isMain(p){return p==='tracks'||p==='stats';}
+function navigate(page,title,render){
+  nav.push(page);showPage(page);
+  document.getElementById('header-title').innerHTML=title;
+  document.getElementById('back-btn').style.display='flex';
+  document.getElementById('bottom-nav').style.display='none';
+  if(render)render();
+}
+function goBack(){
+  nav.pop();
+  const prev=nav[nav.length-1];
+  if(!prev||isMain(prev)){
+    const tab=prev||'tracks';nav=[];showPage(tab);
+    document.getElementById('header-title').innerHTML='KART<span style="color:var(--red)">TRACK</span>';
+    document.getElementById('back-btn').style.display='none';
+    document.getElementById('bottom-nav').style.display='flex';
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.getElementById('nav-'+tab).classList.add('active');
+    if(tab==='tracks')renderTracks();else renderStats();
+  } else if(prev==='sessions'){nav.pop();navigate('sessions',cTrack.name.toUpperCase(),renderSessions);}
+  else if(prev==='runs'){nav.pop();const d=new Date(cSession.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).toUpperCase();navigate('runs',d,renderRuns);}
+  else if(prev==='run-detail'){nav.pop();const d=new Date(cSession.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).toUpperCase();navigate('runs',d,renderRuns);}
+}
+function switchTab(tab){
+  nav=[];showPage(tab);
+  document.getElementById('header-title').innerHTML='KART<span style="color:var(--red)">TRACK</span>';
+  document.getElementById('back-btn').style.display='none';
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('nav-'+tab).classList.add('active');
+  if(tab==='tracks')renderTracks();else renderStats();
+}
+
+// RIGHTS BAR
+function rightsBar(track,bestSec){
+  if(!track||track.noRights||!track.rightsTime)return '';
+  const rt=track.rightsTime;
+  const achieved=bestSec&&bestSec<=rt;
+  const diff=bestSec?bestSec-rt:null;
+  const pct=bestSec?Math.min(100,Math.max(0,(1-(bestSec-rt)/(rt*0.12+0.001))*100)):0;
+  const fillColor=achieved?'#4CAF50':pct>70?'#FF9800':'#E53935';
+  return `<div class="rights-bar">
+    <div class="rights-header">
+      <div class="rights-title">🏆 Время на права</div>
+      ${achieved?'<div class="rights-achieved">✓ Достигнуто!</div>':''}
+    </div>
+    <div class="rights-gap">
+      <div><div style="font-size:10px;color:var(--gray2);margin-bottom:1px">Цель</div><div class="rights-target">${s2t(rt)}</div></div>
+      ${diff!==null?`<div style="text-align:right"><div style="font-size:10px;color:var(--gray2);margin-bottom:1px">${achieved?'Лучше на':'Отставание'}</div><div class="rights-diff ${achieved?'done':Math.abs(diff)<2?'close':'far'}">${achieved?'-'+s2t(Math.abs(diff)):'+'+s2t(diff)}</div></div>`:''}
+    </div>
+    ${diff!==null?`<div class="rights-progress"><div class="rights-fill" style="width:${Math.min(100,pct)}%;background:${fillColor}"></div></div>`:''}
+  </div>`;
+}
+
+function drawLineChart(canvasId,labels,values,bestVal,height){
+  if(charts[canvasId]){charts[canvasId].destroy();delete charts[canvasId];}
+  const c=document.getElementById(canvasId);if(!c)return;
+  const cols=values.map(v=>v===bestVal?'#9C27B0':'#E53935');
+  charts[canvasId]=new Chart(c.getContext('2d'),{
+    type:'line',
+    data:{labels,datasets:[{data:values,borderColor:'#E53935',backgroundColor:'rgba(229,57,53,0.08)',fill:true,tension:0.35,pointBackgroundColor:cols,pointBorderColor:cols,pointRadius:4,pointHoverRadius:6,borderWidth:1.5}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{
+      y:{ticks:{callback:v=>s2t(v),font:{size:9},color:'#757575'},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'transparent'}},
+      x:{grid:{display:false},ticks:{font:{size:10},color:'#757575',maxRotation:0},border:{color:'transparent'}}
+    }}
+  });
+}
+
+// RENDER TRACKS
+function renderTracks(){
+  const list=document.getElementById('tracks-list'),empty=document.getElementById('tracks-empty');
+  const tracks=[...D.tracks].sort((a,b)=>b.createdAt-a.createdAt);
+  if(!tracks.length){list.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  list.innerHTML=tracks.map(t=>{
+    const sess=D.sessions.filter(s=>s.trackId===t.id);
+    const runs=D.runs.filter(r=>sess.some(s=>s.id===r.sessionId));
+    const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
+    const rightsAch=best&&t.rightsTime&&best<=t.rightsTime;
+    const thumb=t.photo?`<img src="${t.photo}">`:`<div class="track-thumb-ph">🏎️</div>`;
+    return `<div class="card track-card clickable" onclick="openTrack('${t.id}')">
+      <div class="track-thumb">${thumb}</div>
+      <div class="track-info">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="flex:1">
+            <div class="track-name">${t.name}</div>
+            <div class="track-sub">${t.city||''}${t.length?' · '+t.length+' м':''}</div>
+          </div>
+        </div>
+        <div class="badges" style="margin-top:4px">
+          <span class="badge b-gray">${sess.length} сессий</span>
+          ${best?`<span class="badge b-purple">🟣 ${s2t(best)}</span>`:''}
+          ${rightsAch?'<span class="badge b-green">🏆 Права</span>':''}
+          ${t.rightsTime&&!t.noRights&&best&&!rightsAch?`<span class="badge b-yellow">🎯 ${s2t(t.rightsTime)}</span>`:''}
+        </div>
+        <div class="action-row">
+          <button class="act-btn edit-btn" onclick="event.stopPropagation();editTrack('${t.id}')">✏️ Изменить</button>
+          <button class="act-btn danger" onclick="event.stopPropagation();delTrack('${t.id}')">✕ Удалить</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openTrack(tid){cTrack=D.tracks.find(t=>t.id===tid);navigate('sessions',cTrack.name.toUpperCase(),renderSessions);}
+
+// RENDER SESSIONS
+function renderSessions(){
+  const list=document.getElementById('sessions-list'),empty=document.getElementById('sessions-empty');
+  const sess=D.sessions.filter(s=>s.trackId===cTrack.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!sess.length){list.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  const allRuns=D.runs.filter(r=>sess.some(s=>s.id===r.sessionId));
+  const trackBest=allRuns.length?Math.min(...allRuns.map(r=>r.bestSec)):null;
+  const rBar=rightsBar(cTrack,trackBest);
+  const prog=`<div class="card clickable" onclick="openProgress()" style="border-color:rgba(229,57,53,.3)">
+    <div style="display:flex;align-items:center;gap:10px;padding:11px;color:var(--red)">
+      <span style="font-size:18px">📈</span>
+      <span style="font-family:Rajdhani,sans-serif;font-size:15px;font-weight:700">ПРОГРЕСС НА ТРАССЕ</span>
+    </div>
+  </div>`;
+  list.innerHTML=rBar+prog+sess.map(s=>{
+    const runs=D.runs.filter(r=>r.sessionId===s.id);
+    const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
+    const date=new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+    return `<div class="card">
+      <div style="padding:11px" onclick="openSession('${s.id}')" style="cursor:pointer">
+        <div style="cursor:pointer" onclick="openSession('${s.id}')">
+          <div style="font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700">${date}</div>
+          <div class="badges" style="margin-top:4px">
+            ${s.weather?`<span class="badge b-gray">${s.weather}</span>`:''}
+            <span class="badge b-gray">${runs.length} заездов</span>
+            ${best?`<span class="badge b-purple">🟣 ${s2t(best)}</span>`:''}
+          </div>
+          ${s.notes?`<div style="font-size:11px;color:var(--gray2);margin-top:3px">${s.notes}</div>`:''}
+        </div>
+        <div class="action-row">
+          <button class="act-btn edit-btn" onclick="event.stopPropagation();editSession('${s.id}')">✏️ Изменить</button>
+          <button class="act-btn danger" onclick="event.stopPropagation();delSession('${s.id}')">✕ Удалить</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openSession(sid){
+  cSession=D.sessions.find(s=>s.id===sid);
+  const d=new Date(cSession.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).toUpperCase();
+  navigate('runs',d,renderRuns);
+}
+
+// RENDER RUNS
+function renderRuns(){
+  const el=document.getElementById('runs-content');
+  const runs=D.runs.filter(r=>r.sessionId===cSession.id).sort((a,b)=>a.createdAt-b.createdAt);
+  const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
+  const avg=runs.length?runs.reduce((a,b)=>a+b.bestSec,0)/runs.length:null;
+  const laps=runs.reduce((a,b)=>a+(b.laps||0),0);
+
+  const banner=cTrack.photo
+    ?`<div class="track-banner"><img src="${cTrack.photo}"><div class="banner-name">${cTrack.name}</div></div>`
+    :`<div class="track-banner"><div class="track-banner-ph"><span>🏎️</span><p>${cTrack.name}</p></div></div>`;
+
+  const date=new Date(cSession.date).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+  const sinfo=`<div style="margin-bottom:8px;padding:9px 11px;background:var(--s2);border:1px solid var(--border);border-radius:9px">
+    <div style="font-size:11px;color:var(--gray2)">${date}${cSession.weather?' · '+cSession.weather:''}</div>
+    ${cSession.notes?`<div style="font-size:10px;color:var(--gray);margin-top:1px">${cSession.notes}</div>`:''}
+  </div>`;
+
+  const stats=`<div class="stat-row g4">
+    <div class="stat-card"><div class="sv sv-purple">${best?s2t(best):'—'}</div><div class="sl">Рекорд</div></div>
+    <div class="stat-card"><div class="sv">${runs.length}</div><div class="sl">Заездов</div></div>
+    <div class="stat-card"><div class="sv">${avg?s2t(avg):'—'}</div><div class="sl">Среднее</div></div>
+    <div class="stat-card"><div class="sv">${laps||'—'}</div><div class="sl">Кругов</div></div>
+  </div>`;
+
+  const rBar=rightsBar(cTrack,best);
+
+  const chart=runs.length>1?`<div class="chart-card">
+    <div class="chart-title">Лучшие времена заездов</div>
+    <canvas id="rc" height="80"></canvas>
+  </div>`:'';
+
+  const rlist=runs.length?`<div class="sec-title">Заезды</div>`+runs.map((r,i)=>{
+    const ib=r.bestSec===best;
+    const hasLaps=r.lapTimes&&r.lapTimes.length>0;
+    return `<div class="run-item${ib?' best-run':''}${hasLaps?' clickable':''}"${hasLaps?` onclick="openRunDetail('${r.id}')"`:''}>
+      <div style="flex:1">
+        <div class="run-num">Заезд ${i+1}${r.laps?' · '+r.laps+' кр.':''}${r.kart?' · <span style="color:var(--white)">' + r.kart + '</span>':''}</div>
+        ${r.notes?`<div class="run-note">${r.notes}</div>`:''}
+        ${hasLaps?`<div class="run-note" style="color:rgba(229,57,53,.7);font-size:10px">▶ Нажми для деталей</div>`:''}
+        <div class="action-row">
+          <button class="act-btn edit-btn" onclick="event.stopPropagation();editRun('${r.id}')">✏️</button>
+          <button class="act-btn danger" onclick="event.stopPropagation();delRun('${r.id}')">✕</button>
+        </div>
+      </div>
+      <div class="run-time${ib?' rt-purple':''}" style="margin-left:8px">${r.bestStr}${ib?' 🟣':''}</div>
+    </div>`;
+  }).join(''):`<div class="empty"><div class="empty-icon">⏱️</div><div class="empty-text">Нет заездов. Нажми +</div></div>`;
+
+  el.innerHTML=banner+sinfo+stats+rBar+chart+rlist;
+  if(runs.length>1)setTimeout(()=>drawLineChart('rc',runs.map((_,i)=>`#${i+1}`),runs.map(r=>r.bestSec),best,80),50);
+}
+
+// RUN DETAIL
+function openRunDetail(rid){
+  cRun=D.runs.find(r=>r.id===rid);
+  navigate('run-detail','ДЕТАЛИ ЗАЕЗДА',renderRunDetail);
+}
+function renderRunDetail(){
+  const el=document.getElementById('run-detail-content');
+  const r=cRun,laps=r.lapTimes||[];
+  const best=Math.min(...laps),avg=laps.reduce((a,b)=>a+b,0)/laps.length,worst=Math.max(...laps);
+  const date=new Date(cSession.date).toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+  el.innerHTML=`
+    <div style="margin-bottom:8px;padding:9px 11px;background:var(--s2);border:1px solid var(--border);border-radius:9px">
+      <div style="font-size:11px;color:var(--gray2)">${date} · ${cTrack.name}${r.kart?' · '+r.kart:''}</div>
+      ${r.notes?`<div style="font-size:10px;color:var(--gray);margin-top:1px">${r.notes}</div>`:''}
+    </div>
+    <div class="stat-row g3">
+      <div class="stat-card"><div class="sv sv-purple">${s2t(best)}</div><div class="sl">Лучший</div></div>
+      <div class="stat-card"><div class="sv">${s2t(avg)}</div><div class="sl">Среднее</div></div>
+      <div class="stat-card"><div class="sv sv-red">${s2t(worst)}</div><div class="sl">Худший</div></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Все круги заезда</div>
+      <canvas id="dc" height="90"></canvas>
+    </div>
+    <div class="sec-title">Круги</div>
+    ${laps.map((lt,i)=>{
+      const ib=lt===best;
+      return `<div class="lap-item${ib?' best-run':''}">
+        <div style="font-size:10px;color:var(--gray2)">Круг ${i+1}</div>
+        <div class="lap-time${ib?' lap-best':''}">${s2t(lt)}${ib?' 🟣':''}</div>
+      </div>`;
+    }).join('')}`;
+  setTimeout(()=>drawLineChart('dc',laps.map((_,i)=>`${i+1}`),laps,best,90),50);
+}
+
+// PROGRESS
+function openProgress(){navigate('progress',cTrack.name.toUpperCase()+' · ПРОГРЕСС',renderProgress);}
+function renderProgress(){
+  const el=document.getElementById('progress-content');
+  const sess=D.sessions.filter(s=>s.trackId===cTrack.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const bests=sess.map(s=>{
+    const runs=D.runs.filter(r=>r.sessionId===s.id);
+    return{date:s.date,best:runs.length?Math.min(...runs.map(r=>r.bestSec)):null,weather:s.weather};
+  }).filter(s=>s.best!==null);
+  if(bests.length<2){el.innerHTML=`<div class="empty"><div class="empty-icon">📈</div><div class="empty-text">Нужно минимум 2 сессии с данными</div></div>`;return;}
+  const ab=Math.min(...bests.map(s=>s.best));
+  const diff=bests[0].best-bests[bests.length-1].best;
+  const good=diff>0;
+  el.innerHTML=`<div class="prog-hero">
+    <div class="prog-lbl">Рекорд трассы</div>
+    <div class="prog-rec">🟣 ${s2t(ab)}</div>
+    <div class="improve ${good?'good':'bad'}">${good?'↓ Улучшение':'↑ Ухудшение'} на ${s2t(Math.abs(diff))} за ${bests.length} сессий</div>
+  </div>
+  ${rightsBar(cTrack,ab)}
+  <div class="chart-card">
+    <div class="chart-title">Прогресс по сессиям</div>
+    <canvas id="pc" height="95"></canvas>
+  </div>
+  <div class="sec-title">По сессиям</div>
+  ${bests.map((s,i)=>{
+    const ib=s.best===ab;
+    const prev=i>0?bests[i-1].best:null;
+    const d=prev?prev-s.best:null;
+    const date=new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+    return `<div class="run-item${ib?' best-run':''}">
+      <div>
+        <div class="run-num">${date}${s.weather?' · '+s.weather:''}</div>
+        ${d!==null?`<div class="run-note improve ${d>0?'good':'bad'}">${d>0?'↓ -'+s2t(d):'↑ +'+s2t(Math.abs(d))}</div>`:'<div class="run-note" style="color:var(--gray)">Первая сессия</div>'}
+      </div>
+      <div class="run-time${ib?' rt-purple':''}">${s2t(s.best)}${ib?' 🟣':''}</div>
+    </div>`;
+  }).join('')}`;
+  setTimeout(()=>drawLineChart('pc',bests.map(s=>new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})),bests.map(s=>s.best),ab,95),50);
+}
+
+// GLOBAL STATS
+function renderStats(){
+  const el=document.getElementById('stats-content');
+  const totalSess=D.sessions.length,totalRuns=D.runs.length;
+  const totalLaps=D.runs.reduce((a,b)=>a+(b.laps||0),0);
+  const allBests=D.runs.map(r=>r.bestSec).filter(s=>!isNaN(s));
+  const overallBest=allBests.length?Math.min(...allBests):null;
+  const rightsAch=D.tracks.filter(t=>{
+    if(t.noRights||!t.rightsTime)return false;
+    const sess=D.sessions.filter(s=>s.trackId===t.id);
+    const runs=D.runs.filter(r=>sess.some(s=>s.id===r.sessionId));
+    const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
+    return best&&best<=t.rightsTime;
+  });
+  let bestTrackName='—';
+  if(overallBest){
+    const br=D.runs.find(r=>r.bestSec===overallBest);
+    if(br){const s=D.sessions.find(s=>s.id===br.sessionId);if(s){const t=D.tracks.find(t=>t.id===s.trackId);if(t)bestTrackName=t.name;}}
+  }
+  const trackStats=D.tracks.map(t=>{
+    const sess=D.sessions.filter(s=>s.trackId===t.id);
+    const runs=D.runs.filter(r=>sess.some(s=>s.id===r.sessionId));
+    const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
+    return{name:t.name,sessions:sess.length,runs:runs.length,best};
+  }).filter(t=>t.sessions>0).sort((a,b)=>b.sessions-a.sessions);
+
+  el.innerHTML=`
+    <div class="stats-hero">
+      <div class="stats-hero-num">${totalSess}</div>
+      <div class="stats-hero-label">Всего сессий на картинге</div>
+    </div>
+    <div class="stat-row g2">
+      <div class="stat-card"><div class="sv sv-red">${totalRuns}</div><div class="sl">Заездов</div></div>
+      <div class="stat-card"><div class="sv">${totalLaps||'—'}</div><div class="sl">Кругов</div></div>
+    </div>
+    <div class="stat-row g2">
+      <div class="stat-card"><div class="sv sv-purple">${overallBest?s2t(overallBest):'—'}</div><div class="sl">Лучший круг ever</div></div>
+      <div class="stat-card"><div class="sv sv-green">${rightsAch.length}/${D.tracks.filter(t=>!t.noRights&&t.rightsTime).length}</div><div class="sl">Прав получено</div></div>
+    </div>
+    ${overallBest?`<div style="padding:9px 11px;background:var(--s2);border:1px solid var(--border);border-radius:9px;margin-bottom:8px;font-size:11px;color:var(--gray2)">🏆 Рекорд на <span style="color:var(--white);font-weight:600">${bestTrackName}</span></div>`:''}
+    ${trackStats.length?`<div class="sec-title">По трассам</div>`+trackStats.map(t=>`
+      <div class="run-item">
+        <div>
+          <div style="font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700">${t.name}</div>
+          <div class="run-note">${t.sessions} сессий · ${t.runs} заездов</div>
+        </div>
+        <div class="run-time${t.best?' rt-purple':''}">${t.best?s2t(t.best):'—'}</div>
+      </div>`).join(''):''}
+    ${!totalSess?`<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Данных пока нет</div></div>`:''}`;
+}
+
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');});
+});
+load();renderTracks();
+</script>
+</body>
+</html>
