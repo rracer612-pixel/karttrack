@@ -340,17 +340,51 @@ let charts={},photoData=null,lapInputs=[];
 let editingTrackId=null,editingSessionId=null,editingRunId=null;
 
 function getTelegramUserId(){
-  try{
-    if(window.Telegram&&window.Telegram.WebApp){
-      const tg=window.Telegram.WebApp;
-      tg.ready();tg.expand();
-      const user=tg.initDataUnsafe?.user;
-      if(user?.id)return String(user.id);
+  return new Promise((resolve) => {
+    // Попытка 1: сразу проверяем
+    const tryGet = () => {
+      try {
+        if(window.Telegram && window.Telegram.WebApp){
+          const user = window.Telegram.WebApp.initDataUnsafe?.user;
+          if(user?.id) return String(user.id);
+        }
+      } catch(e){}
+      return null;
+    };
+
+    const immediate = tryGet();
+    if(immediate){
+      resolve(immediate);
+      return;
     }
-  }catch(e){}
-  let devId=localStorage.getItem('dev_uid');
-  if(!devId){devId='dev_'+Math.random().toString(36).slice(2,10);localStorage.setItem('dev_uid',devId);}
-  return devId;
+
+    // Попытка 2: ждём инициализацию Telegram WebApp
+    let attempts = 0;
+    const maxAttempts = 20; // 2 секунды максимум
+
+    const interval = setInterval(() => {
+      attempts++;
+      const result = tryGet();
+
+      if(result){
+        clearInterval(interval);
+        resolve(result);
+        return;
+      }
+
+      if(attempts >= maxAttempts){
+        clearInterval(interval);
+        // Fallback: используем стабильный ID
+        console.warn('Telegram user ID не получен, используем fallback');
+        let devId = localStorage.getItem('dev_uid');
+        if(!devId){
+          devId = 'dev_' + Math.random().toString(36).slice(2,10);
+          localStorage.setItem('dev_uid', devId);
+        }
+        resolve(devId);
+      }
+    }, 100);
+  });
 }
 
 function showSync(state,text){
@@ -413,11 +447,62 @@ async function loadFromCloud(){
 }
 
 async function init(){
-  userId=getTelegramUserId();
-  const ok=await loadFromCloud();
-  document.getElementById('loading').style.display='none';
-  if(!ok)showSync('error','Ошибка соединения');
+  // Сначала инициализируем Telegram
+  try {
+    if(window.Telegram && window.Telegram.WebApp){
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+    }
+  } catch(e){}
+
+  // Ждём получения userId
+  document.getElementById('loading-text').textContent = 'Авторизация...';
+  userId = await getTelegramUserId();
+
+  console.log('User ID:', userId); // для отладки
+
+  const ok = await loadFromCloud();
+  document.getElementById('loading').style.display = 'none';
+
+  if(!ok) showSync('error','Ошибка соединения');
   renderTracks();
+}
+
+  async function loadFromCloud(){
+  try{
+    document.getElementById('loading-text').textContent='Загружаем данные...';
+    const[t,s,r]=await Promise.all([
+      sb.from('tracks').select('*').eq('user_id',userId).order('created_at'),
+      sb.from('sessions').select('*').eq('user_id',userId).order('created_at'),
+      sb.from('runs').select('*').eq('user_id',userId).order('created_at'),
+    ]);
+    if(t.error)throw t.error;
+    D.tracks=(t.data||[]).map(row=>({id:row.id,name:row.name,city:row.city,length:row.length,photo:row.photo,rightsTime:row.rights_time,noRights:row.no_rights,createdAt:row.created_at}));
+    D.sessions=(s.data||[]).map(row=>({id:row.id,trackId:row.track_id,date:row.date,weather:row.weather,notes:row.notes,createdAt:row.created_at}));
+    D.runs=(r.data||[]).map(row=>({id:row.id,sessionId:row.session_id,bestSec:row.best_sec,bestStr:row.best_str,lapTimes:row.lap_times||[],laps:row.laps,kart:row.kart,notes:row.notes,createdAt:row.created_at}));
+
+    // ✅ Кэшируем в localStorage
+    try {
+      localStorage.setItem('cache_'+userId, JSON.stringify(D));
+    } catch(e){} // если фото слишком большие — молча пропускаем
+
+    return true;
+  }catch(e){
+    console.error('Load error:',e);
+
+    // ✅ Пробуем загрузить из кэша
+    try {
+      const cached = localStorage.getItem('cache_'+userId);
+      if(cached){
+        D = JSON.parse(cached);
+        showSync('error','Офлайн режим (кэш)');
+        return true;
+      }
+    } catch(e2){}
+
+    return false;
+  }
 }
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
