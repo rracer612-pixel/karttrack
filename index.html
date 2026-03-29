@@ -18,7 +18,6 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Inter',sans-serif;background:var(--black);color:var(--white);min-height:100vh;}
 
-/* LOADING */
 .loading-screen{position:fixed;inset:0;background:var(--black);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:16px;}
 .loading-logo{font-family:'Rajdhani',sans-serif;font-size:32px;font-weight:700;letter-spacing:2px;}
 .loading-logo span{color:var(--red);}
@@ -92,7 +91,7 @@ body{font-family:'Inter',sans-serif;background:var(--black);color:var(--white);m
 .lap-best{color:var(--purple);}
 
 .action-row{display:flex;gap:5px;margin-top:4px;}
-.act-btn{font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--s3);color:var(--gray2);cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
+.act-btn{font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--s3);color:var(--gray2);cursor:pointer;transition:all .15s;}
 .act-btn:hover{border-color:rgba(255,255,255,.2);color:var(--white);}
 .act-btn.danger:hover{border-color:rgba(229,57,53,.5);color:#ef9a9a;}
 .act-btn.edit-btn:hover{border-color:rgba(255,235,59,.4);color:var(--yellow);}
@@ -132,10 +131,12 @@ textarea{resize:none;height:58px;}
 .btn-p{background:var(--red);color:white;}
 .btn-s{background:var(--s3);color:var(--gray2);border:1px solid var(--border);}
 
-.photo-zone{border:2px dashed rgba(255,255,255,.12);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:border-color .2s;position:relative;overflow:hidden;}
+/* PHOTO UPLOAD */
+.photo-zone{border:2px dashed rgba(255,255,255,.12);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:border-color .2s;position:relative;}
 .photo-zone:hover{border-color:var(--red);}
-.photo-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;}
-#tpp{width:100%;height:90px;object-fit:cover;border-radius:6px;margin-top:7px;display:none;}
+.photo-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.photo-preview{width:100%;height:90px;object-fit:cover;border-radius:6px;margin-top:7px;display:none;}
+.photo-loading{font-size:11px;color:var(--orange);margin-top:6px;display:none;}
 
 .mode-tabs{display:flex;gap:5px;margin-bottom:12px;}
 .mode-tab{flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(255,255,255,.1);background:var(--s3);color:var(--gray2);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;font-family:'Rajdhani',sans-serif;}
@@ -187,7 +188,6 @@ textarea{resize:none;height:58px;}
 </head>
 <body>
 
-<!-- LOADING -->
 <div class="loading-screen" id="loading">
   <div class="loading-logo">KART<span>TRACK</span></div>
   <div class="loading-spinner"></div>
@@ -257,11 +257,14 @@ textarea{resize:none;height:58px;}
     </div>
     <div class="fg">
       <label>Фото трассы</label>
-      <div class="photo-zone" onclick="document.getElementById('tpi').click()">
-        <div style="font-size:22px;margin-bottom:2px">📸</div>
-        <div style="font-size:11px;color:var(--gray2)">Нажми чтобы загрузить фото</div>
-        <input type="file" id="tpi" accept="image/*" onchange="previewPhoto(this)">
-        <img id="tpp">
+      <div class="photo-zone">
+        <input type="file" id="tpi" accept="image/*" onchange="handlePhoto(this)">
+        <div id="photo-placeholder">
+          <div style="font-size:22px;margin-bottom:2px">📸</div>
+          <div style="font-size:11px;color:var(--gray2)">Нажми чтобы выбрать фото</div>
+        </div>
+        <div class="photo-loading" id="photo-loading">⏳ Обрабатываем фото...</div>
+        <img id="tpp" class="photo-preview">
       </div>
     </div>
     <div class="btn-row">
@@ -325,124 +328,122 @@ textarea{resize:none;height:58px;}
 </div>
 
 <script>
-// SUPABASE CONFIG
-const SUPABASE_URL = 'https://cnpiikpcmcsvvsozfmnx.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNucGlpa3BjbWNzdnZzb3pmbW54Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MjI3NTksImV4cCI6MjA5MDI5ODc1OX0.-uvRagRsaGHuw5ypf4quHCm8yF54pmO8F8w1P_HokRc';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL='https://cnpiikpcmcsvvsozfmnx.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNucGlpa3BjbWNzdnZzb3pmbW54Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MjI3NTksImV4cCI6MjA5MDI5ODc1OX0.-uvRagRsaGHuw5ypf4quHCm8yF54pmO8F8w1P_HokRc';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-let userId = null;
-let D = { tracks:[], sessions:[], runs:[] };
+let userId=null;
+let D={tracks:[],sessions:[],runs:[]};
 let cTrack=null,cSession=null,cRun=null;
 let selWeather='',nav=[],runMode='best';
 let charts={},photoData=null,lapInputs=[];
 let editingTrackId=null,editingSessionId=null,editingRunId=null;
 
-// GET TELEGRAM USER ID
-function getTelegramUserId() {
-  try {
-    if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-      const user = tg.initDataUnsafe?.user;
-      if (user?.id) return String(user.id);
+function getTelegramUserId(){
+  try{
+    if(window.Telegram&&window.Telegram.WebApp){
+      const tg=window.Telegram.WebApp;
+      tg.ready();tg.expand();
+      const user=tg.initDataUnsafe?.user;
+      if(user?.id)return String(user.id);
     }
-  } catch(e) {}
-  return 'dev_' + (localStorage.getItem('dev_user_id') || (() => {
-    const id = Math.random().toString(36).slice(2,10);
-    localStorage.setItem('dev_user_id', id);
-    return id;
-  })());
+  }catch(e){}
+  let devId=localStorage.getItem('dev_uid');
+  if(!devId){devId='dev_'+Math.random().toString(36).slice(2,10);localStorage.setItem('dev_uid',devId);}
+  return devId;
 }
 
-// SYNC INDICATOR
-function showSync(state, text) {
-  const el = document.getElementById('sync-indicator');
-  const dot = document.getElementById('sync-dot');
-  const txt = document.getElementById('sync-text');
-  el.style.display = 'flex';
-  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
-  txt.textContent = text;
-  if (state === 'done') setTimeout(() => { el.style.display = 'none'; }, 2000);
+function showSync(state,text){
+  const el=document.getElementById('sync-indicator');
+  const dot=document.getElementById('sync-dot');
+  el.style.display='flex';
+  dot.className='sync-dot'+(state==='syncing'?' syncing':state==='error'?' error':'');
+  document.getElementById('sync-text').textContent=text;
+  if(state==='done')setTimeout(()=>{el.style.display='none';},2000);
 }
 
-// LOAD ALL DATA FROM SUPABASE
-async function loadFromCloud() {
-  try {
-    document.getElementById('loading-text').textContent = 'Загружаем данные...';
-    await sb.rpc('set_config', { key: 'app.user_id', value: userId }).catch(() => {});
+// COMPRESS PHOTO — max 400px wide, quality 0.7
+function compressPhoto(file){
+  return new Promise((resolve)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const maxW=400,maxH=400;
+        let w=img.width,h=img.height;
+        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+        if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
+        const canvas=document.createElement('canvas');
+        canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',0.7));
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
-    const [t, s, r] = await Promise.all([
-      sb.from('tracks').select('*').eq('user_id', userId).order('created_at'),
-      sb.from('sessions').select('*').eq('user_id', userId).order('created_at'),
-      sb.from('runs').select('*').eq('user_id', userId).order('created_at'),
+async function handlePhoto(inp){
+  if(!inp.files||!inp.files[0])return;
+  document.getElementById('photo-loading').style.display='block';
+  document.getElementById('tpp').style.display='none';
+  try{
+    photoData=await compressPhoto(inp.files[0]);
+    const p=document.getElementById('tpp');
+    p.src=photoData;p.style.display='block';
+  }catch(e){console.error(e);}
+  document.getElementById('photo-loading').style.display='none';
+}
+
+async function loadFromCloud(){
+  try{
+    document.getElementById('loading-text').textContent='Загружаем данные...';
+    const[t,s,r]=await Promise.all([
+      sb.from('tracks').select('*').eq('user_id',userId).order('created_at'),
+      sb.from('sessions').select('*').eq('user_id',userId).order('created_at'),
+      sb.from('runs').select('*').eq('user_id',userId).order('created_at'),
     ]);
-
-    D.tracks = (t.data || []).map(row => ({
-      id: row.id, name: row.name, city: row.city, length: row.length,
-      photo: row.photo, rightsTime: row.rights_time, noRights: row.no_rights,
-      createdAt: row.created_at,
-    }));
-    D.sessions = (s.data || []).map(row => ({
-      id: row.id, trackId: row.track_id, date: row.date,
-      weather: row.weather, notes: row.notes, createdAt: row.created_at,
-    }));
-    D.runs = (r.data || []).map(row => ({
-      id: row.id, sessionId: row.session_id, bestSec: row.best_sec,
-      bestStr: row.best_str, lapTimes: row.lap_times || [], laps: row.laps,
-      kart: row.kart, notes: row.notes, createdAt: row.created_at,
-    }));
+    if(t.error)throw t.error;
+    D.tracks=(t.data||[]).map(row=>({id:row.id,name:row.name,city:row.city,length:row.length,photo:row.photo,rightsTime:row.rights_time,noRights:row.no_rights,createdAt:row.created_at}));
+    D.sessions=(s.data||[]).map(row=>({id:row.id,trackId:row.track_id,date:row.date,weather:row.weather,notes:row.notes,createdAt:row.created_at}));
+    D.runs=(r.data||[]).map(row=>({id:row.id,sessionId:row.session_id,bestSec:row.best_sec,bestStr:row.best_str,lapTimes:row.lap_times||[],laps:row.laps,kart:row.kart,notes:row.notes,createdAt:row.created_at}));
     return true;
-  } catch(e) {
-    console.error('Load error:', e);
-    return false;
-  }
+  }catch(e){console.error('Load error:',e);return false;}
 }
 
-// INIT
-async function init() {
-  userId = getTelegramUserId();
-  const ok = await loadFromCloud();
-  document.getElementById('loading').style.display = 'none';
-  if (!ok) {
-    showSync('error', 'Ошибка соединения');
-  }
+async function init(){
+  userId=getTelegramUserId();
+  const ok=await loadFromCloud();
+  document.getElementById('loading').style.display='none';
+  if(!ok)showSync('error','Ошибка соединения');
   renderTracks();
 }
 
-// HELPERS
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
-function fmtT(inp) {
-  let r = inp.value.replace(/\D/g,'');
-  if(r.length>8) r=r.slice(0,8);
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
+function fmtT(inp){
+  let r=inp.value.replace(/\D/g,'');
+  if(r.length>8)r=r.slice(0,8);
   let o='';
-  if(r.length<=2) o=r;
-  else if(r.length<=4) o=r.slice(0,2)+':'+r.slice(2);
+  if(r.length<=2)o=r;
+  else if(r.length<=4)o=r.slice(0,2)+':'+r.slice(2);
   else o=r.slice(0,2)+':'+r.slice(2,4)+'.'+r.slice(4);
   inp.value=o;
 }
-function t2s(t) {
-  if(!t) return NaN;
+function t2s(t){
+  if(!t)return NaN;
   t=t.trim().replace(',','.');
-  if(t.includes(':')) return parseFloat(t.split(':')[0])*60+parseFloat(t.split(':')[1]||0);
+  if(t.includes(':'))return parseFloat(t.split(':')[0])*60+parseFloat(t.split(':')[1]||0);
   return parseFloat(t);
 }
-function s2t(s) {
-  if(isNaN(s)||s==null) return '--';
-  const m=Math.floor(s/60), sec=(s%60).toFixed(3).padStart(6,'0');
+function s2t(s){
+  if(isNaN(s)||s==null)return '--';
+  const m=Math.floor(s/60),sec=(s%60).toFixed(3).padStart(6,'0');
   return `${m}:${sec}`;
 }
-function toggleRN(cb) {
-  const el=document.getElementById('tr');
-  el.disabled=cb.checked; el.style.opacity=cb.checked?.4:1;
-}
-function previewPhoto(inp) {
-  if(!inp.files||!inp.files[0]) return;
-  const r=new FileReader();
-  r.onload=e=>{ photoData=e.target.result; const p=document.getElementById('tpp'); p.src=photoData; p.style.display='block'; };
-  r.readAsDataURL(inp.files[0]);
-}
-function setMode(m) {
+function toggleRN(cb){const el=document.getElementById('tr');el.disabled=cb.checked;el.style.opacity=cb.checked?.4:1;}
+
+function setMode(m){
   runMode=m;
   document.getElementById('mode-best').classList.toggle('active',m==='best');
   document.getElementById('mode-laps').classList.toggle('active',m==='laps');
@@ -462,25 +463,26 @@ function renderLapInputs(){
     </div>`).join('');
 }
 
-// MODALS
-function openModal(id) {
+function openModal(id){
   if(id==='mt'){
-    editingTrackId=null; photoData=null;
+    editingTrackId=null;photoData=null;
     document.getElementById('mt-title').textContent='Новая трасса';
-    const p=document.getElementById('tpp'); p.style.display='none'; p.src='';
+    document.getElementById('tpp').style.display='none';
+    document.getElementById('tpp').src='';
     document.getElementById('tpi').value='';
+    document.getElementById('photo-loading').style.display='none';
     ['tn','tc','tl','tr'].forEach(x=>{const el=document.getElementById(x);el.value='';el.disabled=false;el.style.opacity=1;});
     document.getElementById('tr-none').checked=false;
   }
   if(id==='ms'){
-    editingSessionId=null; selWeather='';
+    editingSessionId=null;selWeather='';
     document.getElementById('ms-title').textContent='Новая сессия';
     document.getElementById('sd').value=new Date().toISOString().slice(0,10);
     document.querySelectorAll('.w-chip').forEach(c=>c.classList.remove('sel'));
     document.getElementById('sn').value='';
   }
   if(id==='mr'){
-    editingRunId=null; runMode='best'; lapInputs=[];
+    editingRunId=null;runMode='best';lapInputs=[];
     document.getElementById('mr-title').textContent='Новый заезд';
     ['rk','rt','rl','rn'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('mode-best').classList.add('active');
@@ -491,36 +493,38 @@ function openModal(id) {
   }
   document.getElementById(id).classList.add('open');
 }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function selW(el,v) { document.querySelectorAll('.w-chip').forEach(c=>c.classList.remove('sel')); el.classList.add('sel'); selWeather=v; }
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function selW(el,v){document.querySelectorAll('.w-chip').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');selWeather=v;}
 
-function editTrack(tid) {
-  const t=D.tracks.find(x=>x.id===tid); if(!t) return;
-  editingTrackId=tid; photoData=t.photo||null;
+function editTrack(tid){
+  const t=D.tracks.find(x=>x.id===tid);if(!t)return;
+  editingTrackId=tid;photoData=t.photo||null;
   document.getElementById('mt-title').textContent='Редактировать трассу';
   document.getElementById('tn').value=t.name||'';
   document.getElementById('tc').value=t.city||'';
   document.getElementById('tl').value=t.length||'';
   const tr=document.getElementById('tr');
   tr.value=t.rightsTime?s2t(t.rightsTime):'';
-  tr.disabled=!!t.noRights; tr.style.opacity=t.noRights?.4:1;
+  tr.disabled=!!t.noRights;tr.style.opacity=t.noRights?.4:1;
   document.getElementById('tr-none').checked=!!t.noRights;
+  document.getElementById('photo-loading').style.display='none';
   const p=document.getElementById('tpp');
-  if(t.photo){p.src=t.photo;p.style.display='block';}else{p.style.display='none';p.src='';}
+  if(t.photo){p.src=t.photo;p.style.display='block';}
+  else{p.style.display='none';p.src='';}
   document.getElementById('mt').classList.add('open');
 }
-function editSession(sid) {
-  const s=D.sessions.find(x=>x.id===sid); if(!s) return;
-  editingSessionId=sid; selWeather=s.weather||'';
+function editSession(sid){
+  const s=D.sessions.find(x=>x.id===sid);if(!s)return;
+  editingSessionId=sid;selWeather=s.weather||'';
   document.getElementById('ms-title').textContent='Редактировать сессию';
   document.getElementById('sd').value=s.date||'';
   document.querySelectorAll('.w-chip').forEach(c=>{c.classList.toggle('sel',c.textContent.trim()===selWeather);});
   document.getElementById('sn').value=s.notes||'';
   document.getElementById('ms').classList.add('open');
 }
-function editRun(rid) {
-  const r=D.runs.find(x=>x.id===rid); if(!r) return;
-  editingRunId=rid; lapInputs=[];
+function editRun(rid){
+  const r=D.runs.find(x=>x.id===rid);if(!r)return;
+  editingRunId=rid;lapInputs=[];
   document.getElementById('mr-title').textContent='Редактировать заезд';
   document.getElementById('rk').value=r.kart||'';
   document.getElementById('rn').value=r.notes||'';
@@ -530,123 +534,124 @@ function editRun(rid) {
   document.getElementById('mr').classList.add('open');
 }
 
-// SAVE TO SUPABASE
-async function saveTrack() {
+async function saveTrack(){
   const name=document.getElementById('tn').value.trim();
-  if(!name) return alert('Введи название трассы');
+  if(!name)return alert('Введи название трассы');
   const noRights=document.getElementById('tr-none').checked;
   const rightsTime=noRights?null:(t2s(document.getElementById('tr').value)||null);
   const photo=photoData||(editingTrackId?D.tracks.find(t=>t.id===editingTrackId)?.photo:null)||null;
-  const row={
-    user_id:userId, name, city:document.getElementById('tc').value.trim(),
-    length:parseInt(document.getElementById('tl').value)||0,
-    photo, rights_time:rightsTime, no_rights:noRights,
-  };
+  const row={user_id:userId,name,city:document.getElementById('tc').value.trim(),length:parseInt(document.getElementById('tl').value)||0,photo,rights_time:rightsTime,no_rights:noRights};
   showSync('syncing','Сохраняем...');
-  try {
+  try{
     if(editingTrackId){
-      await sb.from('tracks').update(row).eq('id',editingTrackId);
+      const{error}=await sb.from('tracks').update(row).eq('id',editingTrackId);
+      if(error)throw error;
       const t=D.tracks.find(x=>x.id===editingTrackId);
       Object.assign(t,{name,city:row.city,length:row.length,photo,rightsTime,noRights});
-    } else {
+    }else{
       const id=uid();
-      await sb.from('tracks').insert({...row, id, created_at:Date.now()});
+      const{error}=await sb.from('tracks').insert({...row,id,created_at:Date.now()});
+      if(error)throw error;
       D.tracks.push({id,name,city:row.city,length:row.length,photo,rightsTime,noRights,createdAt:Date.now()});
     }
     showSync('done','Сохранено ✓');
-    closeModal('mt'); photoData=null;
+    closeModal('mt');photoData=null;
     if(editingTrackId&&cTrack?.id===editingTrackId){cTrack=D.tracks.find(t=>t.id===editingTrackId);renderSessions();}
     else renderTracks();
-  } catch(e) { showSync('error','Ошибка сохранения'); }
+  }catch(e){console.error(e);showSync('error','Ошибка: '+e.message);}
 }
 
-async function saveSession() {
+async function saveSession(){
   const date=document.getElementById('sd').value;
-  if(!date) return alert('Выбери дату');
-  const row={user_id:userId, track_id:cTrack.id, date, weather:selWeather, notes:document.getElementById('sn').value.trim()};
+  if(!date)return alert('Выбери дату');
+  const row={user_id:userId,track_id:cTrack.id,date,weather:selWeather,notes:document.getElementById('sn').value.trim()};
   showSync('syncing','Сохраняем...');
-  try {
+  try{
     if(editingSessionId){
-      await sb.from('sessions').update(row).eq('id',editingSessionId);
+      const{error}=await sb.from('sessions').update(row).eq('id',editingSessionId);
+      if(error)throw error;
       const s=D.sessions.find(x=>x.id===editingSessionId);
       Object.assign(s,{date,weather:selWeather,notes:row.notes});
-    } else {
+    }else{
       const id=uid();
-      await sb.from('sessions').insert({...row, id, created_at:Date.now()});
+      const{error}=await sb.from('sessions').insert({...row,id,created_at:Date.now()});
+      if(error)throw error;
       D.sessions.push({id,trackId:cTrack.id,date,weather:selWeather,notes:row.notes,createdAt:Date.now()});
     }
-    showSync('done','Сохранено ✓');
-    closeModal('ms'); renderSessions();
-  } catch(e) { showSync('error','Ошибка сохранения'); }
+    showSync('done','Сохранено ✓');closeModal('ms');renderSessions();
+  }catch(e){console.error(e);showSync('error','Ошибка: '+e.message);}
 }
 
-async function saveRun() {
+async function saveRun(){
   const kart=document.getElementById('rk').value.trim();
   const notes=document.getElementById('rn').value.trim();
   let bestSec=null,lapTimes=[],laps=0;
   if(runMode==='best'){
     const ts=document.getElementById('rt').value.trim();
-    if(!ts) return alert('Введи время круга');
+    if(!ts)return alert('Введи время круга');
     bestSec=t2s(ts);
-    if(isNaN(bestSec)||bestSec<=0) return alert('Формат: 01:23.456');
+    if(isNaN(bestSec)||bestSec<=0)return alert('Формат: 01:23.456');
     laps=parseInt(document.getElementById('rl').value)||0;
-  } else {
+  }else{
     const filled=lapInputs.filter(v=>v.trim());
-    if(!filled.length) return alert('Добавь хотя бы один круг');
+    if(!filled.length)return alert('Добавь хотя бы один круг');
     lapTimes=filled.map(v=>t2s(v)).filter(s=>!isNaN(s)&&s>0);
-    if(!lapTimes.length) return alert('Неверный формат времени');
-    bestSec=Math.min(...lapTimes); laps=lapTimes.length;
+    if(!lapTimes.length)return alert('Неверный формат времени');
+    bestSec=Math.min(...lapTimes);laps=lapTimes.length;
   }
-  const row={user_id:userId, session_id:cSession.id, best_sec:bestSec, best_str:s2t(bestSec), lap_times:lapTimes, laps, kart, notes};
+  const row={user_id:userId,session_id:cSession.id,best_sec:bestSec,best_str:s2t(bestSec),lap_times:lapTimes,laps,kart,notes};
   showSync('syncing','Сохраняем...');
-  try {
+  try{
     if(editingRunId){
-      await sb.from('runs').update(row).eq('id',editingRunId);
+      const{error}=await sb.from('runs').update(row).eq('id',editingRunId);
+      if(error)throw error;
       const r=D.runs.find(x=>x.id===editingRunId);
       Object.assign(r,{bestSec,bestStr:s2t(bestSec),lapTimes,laps,kart,notes});
-    } else {
+    }else{
       const id=uid();
-      await sb.from('runs').insert({...row, id, created_at:Date.now()});
+      const{error}=await sb.from('runs').insert({...row,id,created_at:Date.now()});
+      if(error)throw error;
       D.runs.push({id,sessionId:cSession.id,bestSec,bestStr:s2t(bestSec),lapTimes,laps,kart,notes,createdAt:Date.now()});
     }
-    showSync('done','Сохранено ✓');
-    closeModal('mr'); renderRuns();
-  } catch(e) { showSync('error','Ошибка сохранения'); }
+    showSync('done','Сохранено ✓');closeModal('mr');renderRuns();
+  }catch(e){console.error(e);showSync('error','Ошибка: '+e.message);}
 }
 
-async function delTrack(tid) {
-  if(!confirm('Удалить трассу и все данные?')) return;
+async function delTrack(tid){
+  if(!confirm('Удалить трассу и все данные?'))return;
   showSync('syncing','Удаляем...');
-  try {
-    await sb.from('tracks').delete().eq('id',tid);
+  try{
+    const{error}=await sb.from('tracks').delete().eq('id',tid);
+    if(error)throw error;
     const sids=D.sessions.filter(s=>s.trackId===tid).map(s=>s.id);
     D.tracks=D.tracks.filter(t=>t.id!==tid);
     D.sessions=D.sessions.filter(s=>s.trackId!==tid);
     D.runs=D.runs.filter(r=>!sids.includes(r.sessionId));
-    showSync('done','Удалено ✓'); renderTracks();
-  } catch(e) { showSync('error','Ошибка удаления'); }
+    showSync('done','Удалено ✓');renderTracks();
+  }catch(e){showSync('error','Ошибка удаления');}
 }
-async function delSession(sid) {
-  if(!confirm('Удалить сессию?')) return;
+async function delSession(sid){
+  if(!confirm('Удалить сессию?'))return;
   showSync('syncing','Удаляем...');
-  try {
-    await sb.from('sessions').delete().eq('id',sid);
+  try{
+    const{error}=await sb.from('sessions').delete().eq('id',sid);
+    if(error)throw error;
     D.sessions=D.sessions.filter(s=>s.id!==sid);
     D.runs=D.runs.filter(r=>r.sessionId!==sid);
-    showSync('done','Удалено ✓'); renderSessions();
-  } catch(e) { showSync('error','Ошибка удаления'); }
+    showSync('done','Удалено ✓');renderSessions();
+  }catch(e){showSync('error','Ошибка удаления');}
 }
-async function delRun(rid) {
-  if(!confirm('Удалить заезд?')) return;
+async function delRun(rid){
+  if(!confirm('Удалить заезд?'))return;
   showSync('syncing','Удаляем...');
-  try {
-    await sb.from('runs').delete().eq('id',rid);
+  try{
+    const{error}=await sb.from('runs').delete().eq('id',rid);
+    if(error)throw error;
     D.runs=D.runs.filter(r=>r.id!==rid);
-    showSync('done','Удалено ✓'); renderRuns();
-  } catch(e) { showSync('error','Ошибка удаления'); }
+    showSync('done','Удалено ✓');renderRuns();
+  }catch(e){showSync('error','Ошибка удаления');}
 }
 
-// NAV
 function showPage(n){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+n).classList.add('active');}
 function isMain(p){return p==='tracks'||p==='stats';}
 function navigate(page,title,render){
@@ -667,7 +672,7 @@ function goBack(){
     document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
     document.getElementById('nav-'+tab).classList.add('active');
     if(tab==='tracks')renderTracks();else renderStats();
-  } else if(prev==='sessions'){nav.pop();navigate('sessions',cTrack.name.toUpperCase(),renderSessions);}
+  }else if(prev==='sessions'){nav.pop();navigate('sessions',cTrack.name.toUpperCase(),renderSessions);}
   else if(prev==='runs'){nav.pop();const d=new Date(cSession.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).toUpperCase();navigate('runs',d,renderRuns);}
   else if(prev==='run-detail'){nav.pop();const d=new Date(cSession.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).toUpperCase();navigate('runs',d,renderRuns);}
 }
@@ -797,27 +802,20 @@ function renderRuns(){
   const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
   const avg=runs.length?runs.reduce((a,b)=>a+b.bestSec,0)/runs.length:null;
   const laps=runs.reduce((a,b)=>a+(b.laps||0),0);
-
-  const banner=cTrack.photo
-    ?`<div class="track-banner"><img src="${cTrack.photo}"><div class="banner-name">${cTrack.name}</div></div>`
-    :`<div class="track-banner"><div class="track-banner-ph"><span>🏎️</span><p>${cTrack.name}</p></div></div>`;
-
+  const banner=cTrack.photo?`<div class="track-banner"><img src="${cTrack.photo}"><div class="banner-name">${cTrack.name}</div></div>`:`<div class="track-banner"><div class="track-banner-ph"><span>🏎️</span><p>${cTrack.name}</p></div></div>`;
   const date=new Date(cSession.date).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
   const sinfo=`<div style="margin-bottom:8px;padding:9px 11px;background:var(--s2);border:1px solid var(--border);border-radius:9px">
     <div style="font-size:11px;color:var(--gray2)">${date}${cSession.weather?' · '+cSession.weather:''}</div>
     ${cSession.notes?`<div style="font-size:10px;color:var(--gray);margin-top:1px">${cSession.notes}</div>`:''}
   </div>`;
-
   const stats=`<div class="stat-row g4">
     <div class="stat-card"><div class="sv sv-purple">${best?s2t(best):'—'}</div><div class="sl">Рекорд</div></div>
     <div class="stat-card"><div class="sv">${runs.length}</div><div class="sl">Заездов</div></div>
     <div class="stat-card"><div class="sv">${avg?s2t(avg):'—'}</div><div class="sl">Среднее</div></div>
     <div class="stat-card"><div class="sv">${laps||'—'}</div><div class="sl">Кругов</div></div>
   </div>`;
-
   const rBar=rightsBar(cTrack,best);
   const chart=runs.length>1?`<div class="chart-card"><div class="chart-title">Лучшие времена заездов</div><canvas id="rc" height="80"></canvas></div>`:'';
-
   const rlist=runs.length?`<div class="sec-title">Заезды</div>`+runs.map((r,i)=>{
     const ib=r.bestSec===best;
     const hasLaps=r.lapTimes&&r.lapTimes.length>0;
@@ -834,15 +832,11 @@ function renderRuns(){
       <div class="run-time${ib?' rt-purple':''}" style="margin-left:8px">${r.bestStr}${ib?' 🟣':''}</div>
     </div>`;
   }).join(''):`<div class="empty"><div class="empty-icon">⏱️</div><div class="empty-text">Нет заездов. Нажми +</div></div>`;
-
   el.innerHTML=banner+sinfo+stats+rBar+chart+rlist;
   if(runs.length>1)setTimeout(()=>drawLineChart('rc',runs.map((_,i)=>`#${i+1}`),runs.map(r=>r.bestSec),best),50);
 }
 
-function openRunDetail(rid){
-  cRun=D.runs.find(r=>r.id===rid);
-  navigate('run-detail','ДЕТАЛИ ЗАЕЗДА',renderRunDetail);
-}
+function openRunDetail(rid){cRun=D.runs.find(r=>r.id===rid);navigate('run-detail','ДЕТАЛИ ЗАЕЗДА',renderRunDetail);}
 function renderRunDetail(){
   const el=document.getElementById('run-detail-content');
   const r=cRun,laps=r.lapTimes||[];
@@ -860,13 +854,7 @@ function renderRunDetail(){
     </div>
     <div class="chart-card"><div class="chart-title">Все круги заезда</div><canvas id="dc" height="90"></canvas></div>
     <div class="sec-title">Круги</div>
-    ${laps.map((lt,i)=>{
-      const ib=lt===best;
-      return `<div class="lap-item${ib?' best-run':''}">
-        <div style="font-size:10px;color:var(--gray2)">Круг ${i+1}</div>
-        <div class="lap-time${ib?' lap-best':''}">${s2t(lt)}${ib?' 🟣':''}</div>
-      </div>`;
-    }).join('')}`;
+    ${laps.map((lt,i)=>{const ib=lt===best;return`<div class="lap-item${ib?' best-run':''}"><div style="font-size:10px;color:var(--gray2)">Круг ${i+1}</div><div class="lap-time${ib?' lap-best':''}">${s2t(lt)}${ib?' 🟣':''}</div></div>`;}).join('')}`;
   setTimeout(()=>drawLineChart('dc',laps.map((_,i)=>`${i+1}`),laps,best),50);
 }
 
@@ -874,35 +862,16 @@ function openProgress(){navigate('progress',cTrack.name.toUpperCase()+' · ПР�
 function renderProgress(){
   const el=document.getElementById('progress-content');
   const sess=D.sessions.filter(s=>s.trackId===cTrack.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  const bests=sess.map(s=>{
-    const runs=D.runs.filter(r=>r.sessionId===s.id);
-    return{date:s.date,best:runs.length?Math.min(...runs.map(r=>r.bestSec)):null,weather:s.weather};
-  }).filter(s=>s.best!==null);
+  const bests=sess.map(s=>{const runs=D.runs.filter(r=>r.sessionId===s.id);return{date:s.date,best:runs.length?Math.min(...runs.map(r=>r.bestSec)):null,weather:s.weather};}).filter(s=>s.best!==null);
   if(bests.length<2){el.innerHTML=`<div class="empty"><div class="empty-icon">📈</div><div class="empty-text">Нужно минимум 2 сессии с данными</div></div>`;return;}
   const ab=Math.min(...bests.map(s=>s.best));
   const diff=bests[0].best-bests[bests.length-1].best;
   const good=diff>0;
-  el.innerHTML=`<div class="prog-hero">
-    <div class="prog-lbl">Рекорд трассы</div>
-    <div class="prog-rec">🟣 ${s2t(ab)}</div>
-    <div class="improve ${good?'good':'bad'}">${good?'↓ Улучшение':'↑ Ухудшение'} на ${s2t(Math.abs(diff))} за ${bests.length} сессий</div>
-  </div>
+  el.innerHTML=`<div class="prog-hero"><div class="prog-lbl">Рекорд трассы</div><div class="prog-rec">🟣 ${s2t(ab)}</div><div class="improve ${good?'good':'bad'}">${good?'↓ Улучшение':'↑ Ухудшение'} на ${s2t(Math.abs(diff))} за ${bests.length} сессий</div></div>
   ${rightsBar(cTrack,ab)}
   <div class="chart-card"><div class="chart-title">Прогресс по сессиям</div><canvas id="pc" height="95"></canvas></div>
   <div class="sec-title">По сессиям</div>
-  ${bests.map((s,i)=>{
-    const ib=s.best===ab;
-    const prev=i>0?bests[i-1].best:null;
-    const d=prev?prev-s.best:null;
-    const date=new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
-    return `<div class="run-item${ib?' best-run':''}">
-      <div>
-        <div class="run-num">${date}${s.weather?' · '+s.weather:''}</div>
-        ${d!==null?`<div class="run-note improve ${d>0?'good':'bad'}">${d>0?'↓ -'+s2t(d):'↑ +'+s2t(Math.abs(d))}</div>`:'<div class="run-note" style="color:var(--gray)">Первая сессия</div>'}
-      </div>
-      <div class="run-time${ib?' rt-purple':''}">${s2t(s.best)}${ib?' 🟣':''}</div>
-    </div>`;
-  }).join('')}`;
+  ${bests.map((s,i)=>{const ib=s.best===ab;const prev=i>0?bests[i-1].best:null;const d=prev?prev-s.best:null;const date=new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});return`<div class="run-item${ib?' best-run':''}"><div><div class="run-num">${date}${s.weather?' · '+s.weather:''}</div>${d!==null?`<div class="run-note improve ${d>0?'good':'bad'}">${d>0?'↓ -'+s2t(d):'↑ +'+s2t(Math.abs(d))}</div>`:'<div class="run-note" style="color:var(--gray)">Первая сессия</div>'}</div><div class="run-time${ib?' rt-purple':''}">${s2t(s.best)}${ib?' 🟣':''}</div></div>`;}).join('')}`;
   setTimeout(()=>drawLineChart('pc',bests.map(s=>new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})),bests.map(s=>s.best),ab),50);
 }
 
@@ -912,30 +881,12 @@ function renderStats(){
   const totalLaps=D.runs.reduce((a,b)=>a+(b.laps||0),0);
   const allBests=D.runs.map(r=>r.bestSec).filter(s=>!isNaN(s));
   const overallBest=allBests.length?Math.min(...allBests):null;
-  const rightsAch=D.tracks.filter(t=>{
-    if(t.noRights||!t.rightsTime)return false;
-    const sess=D.sessions.filter(s=>s.trackId===t.id);
-    const runs=D.runs.filter(r=>sess.some(s=>s.id===r.sessionId));
-    const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
-    return best&&best<=t.rightsTime;
-  });
+  const rightsAch=D.tracks.filter(t=>{if(t.noRights||!t.rightsTime)return false;const sess=D.sessions.filter(s=>s.trackId===t.id);const runs=D.runs.filter(r=>sess.some(s=>s.id===r.sessionId));const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;return best&&best<=t.rightsTime;});
   let bestTrackName='—';
-  if(overallBest){
-    const br=D.runs.find(r=>r.bestSec===overallBest);
-    if(br){const s=D.sessions.find(s=>s.id===br.sessionId);if(s){const t=D.tracks.find(t=>t.id===s.trackId);if(t)bestTrackName=t.name;}}
-  }
-  const trackStats=D.tracks.map(t=>{
-    const sess=D.sessions.filter(s=>s.trackId===t.id);
-    const runs=D.runs.filter(r=>sess.some(s=>s.id===r.sessionId));
-    const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
-    return{name:t.name,sessions:sess.length,runs:runs.length,best};
-  }).filter(t=>t.sessions>0).sort((a,b)=>b.sessions-a.sessions);
-
+  if(overallBest){const br=D.runs.find(r=>r.bestSec===overallBest);if(br){const s=D.sessions.find(s=>s.id===br.sessionId);if(s){const t=D.tracks.find(t=>t.id===s.trackId);if(t)bestTrackName=t.name;}}}
+  const trackStats=D.tracks.map(t=>{const sess=D.sessions.filter(s=>s.trackId===t.id);const runs=D.runs.filter(r=>sess.some(s=>s.id===r.sessionId));const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;return{name:t.name,sessions:sess.length,runs:runs.length,best};}).filter(t=>t.sessions>0).sort((a,b)=>b.sessions-a.sessions);
   el.innerHTML=`
-    <div class="stats-hero">
-      <div class="stats-hero-num">${totalSess}</div>
-      <div class="stats-hero-label">Всего сессий на картинге</div>
-    </div>
+    <div class="stats-hero"><div class="stats-hero-num">${totalSess}</div><div class="stats-hero-label">Всего сессий на картинге</div></div>
     <div class="stat-row g2">
       <div class="stat-card"><div class="sv sv-red">${totalRuns}</div><div class="sl">Заездов</div></div>
       <div class="stat-card"><div class="sv">${totalLaps||'—'}</div><div class="sl">Кругов</div></div>
@@ -945,11 +896,7 @@ function renderStats(){
       <div class="stat-card"><div class="sv sv-green">${rightsAch.length}/${D.tracks.filter(t=>!t.noRights&&t.rightsTime).length}</div><div class="sl">Прав получено</div></div>
     </div>
     ${overallBest?`<div style="padding:9px 11px;background:var(--s2);border:1px solid var(--border);border-radius:9px;margin-bottom:8px;font-size:11px;color:var(--gray2)">🏆 Рекорд на <span style="color:var(--white);font-weight:600">${bestTrackName}</span></div>`:''}
-    ${trackStats.length?`<div class="sec-title">По трассам</div>`+trackStats.map(t=>`
-      <div class="run-item">
-        <div><div style="font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700">${t.name}</div><div class="run-note">${t.sessions} сессий · ${t.runs} заездов</div></div>
-        <div class="run-time${t.best?' rt-purple':''}">${t.best?s2t(t.best):'—'}</div>
-      </div>`).join(''):''}
+    ${trackStats.length?`<div class="sec-title">По трассам</div>`+trackStats.map(t=>`<div class="run-item"><div><div style="font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700">${t.name}</div><div class="run-note">${t.sessions} сессий · ${t.runs} заездов</div></div><div class="run-time${t.best?' rt-purple':''}">${t.best?s2t(t.best):'—'}</div></div>`).join(''):''}
     ${!totalSess?`<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Данных пока нет</div></div>`:''}`;
 }
 
