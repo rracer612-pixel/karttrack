@@ -8,6 +8,7 @@ let cTrack=null,cSession=null,cRun=null;
 let selWeather='',nav=[],runMode='best';
 let charts={},photoData=null,lapInputs=[];
 let editingTrackId=null,editingSessionId=null,editingRunId=null;
+let sessionsTab='sessions';
 
 function getTelegramUserId(){
   return new Promise((resolve) => {
@@ -131,6 +132,11 @@ async function init(){
   userId = await getTelegramUserId();
 
   console.log('User ID:', userId); // для отладки
+
+  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+  const username = tgUser?.username || tgUser?.first_name || 'Гонщик';
+  localStorage.setItem('tg_username', username);
+  sb.from('track_members').update({username}).eq('member_id', userId);
 
   const ok = await loadFromCloud();
   document.getElementById('loading').style.display = 'none';
@@ -474,10 +480,45 @@ function drawLineChart(canvasId,labels,values,bestVal){
   });
 }
 
+async function joinByCode(){
+  const code=document.getElementById('join-code-input').value.trim().toUpperCase();
+  if(!code)return alert('Введи код приглашения');
+  showSync('syncing','Ищем трассу...');
+  try{
+    const{data,error}=await sb.from('track_members').select('track_id,owner_id').eq('invite_code',code).single();
+    if(error||!data)throw new Error('Код не найден');
+    const trackId=data.track_id,ownerId=data.owner_id;
+    const{error:e2}=await sb.from('track_members').upsert({
+      id:trackId+'_'+userId,
+      track_id:trackId,
+      owner_id:ownerId,
+      member_id:userId,
+      joined_at:Date.now()
+    });
+    if(e2)throw e2;
+    if(!D.tracks.find(t=>t.id===trackId)){
+      const{data:td,error:e3}=await sb.from('tracks').select('*').eq('id',trackId).single();
+      if(e3)throw e3;
+      D.tracks.push({id:td.id,name:td.name,city:td.city,length:td.length,photo:td.photo,rightsTime:td.rights_time,noRights:td.no_rights,createdAt:td.created_at});
+      const{data:sd}=await sb.from('sessions').select('*').eq('track_id',trackId).order('created_at');
+      if(sd)D.sessions.push(...sd.map(row=>({id:row.id,trackId:row.track_id,date:row.date,weather:row.weather,notes:row.notes,createdAt:row.created_at})).filter(s=>!D.sessions.find(x=>x.id===s.id)));
+      const sids=(sd||[]).map(s=>s.id);
+      if(sids.length){
+        const{data:rd}=await sb.from('runs').select('*').in('session_id',sids).order('created_at');
+        if(rd)D.runs.push(...rd.map(row=>({id:row.id,sessionId:row.session_id,bestSec:row.best_sec,bestStr:row.best_str,lapTimes:row.lap_times||[],laps:row.laps,kart:row.kart,notes:row.notes,createdAt:row.created_at})).filter(r=>!D.runs.find(x=>x.id===r.id)));
+      }
+    }
+    showSync('done','Трасса добавлена ✓');
+    closeModal('m-join');
+    renderTracks();
+  }catch(e){showSync('error',e.message||'Ошибка');}
+}
+
 function renderTracks(){
   const list=document.getElementById('tracks-list'),empty=document.getElementById('tracks-empty');
   const tracks=[...D.tracks].sort((a,b)=>b.createdAt-a.createdAt);
-  if(!tracks.length){list.innerHTML='';empty.style.display='block';return;}
+  const joinBtn=`<div style="margin-top:8px"><button class="btn btn-s" style="width:100%;font-size:13px" onclick="openModal('m-join')">🔑 Войти по коду</button></div>`;
+  if(!tracks.length){list.innerHTML=joinBtn;empty.style.display='block';return;}
   empty.style.display='none';
   list.innerHTML=tracks.map(t=>{
     const sess=D.sessions.filter(s=>s.trackId===t.id);
@@ -502,16 +543,83 @@ function renderTracks(){
         </div>
       </div>
     </div>`;
-  }).join('');
+  }).join('')+joinBtn;
 }
 
-function openTrack(tid){cTrack=D.tracks.find(t=>t.id===tid);navigate('sessions',cTrack.name.toUpperCase(),renderSessions);}
+function openTrack(tid){cTrack=D.tracks.find(t=>t.id===tid);sessionsTab='sessions';navigate('sessions',cTrack.name.toUpperCase(),renderSessions);}
+
+async function inviteToTrack(){
+  const code=Math.random().toString(36).slice(2,8).toUpperCase();
+  showSync('syncing','Создаём код...');
+  try{
+    const{error}=await sb.from('track_members').upsert({
+      id:cTrack.id+'_'+userId,
+      track_id:cTrack.id,
+      owner_id:userId,
+      member_id:userId,
+      invite_code:code,
+      joined_at:Date.now()
+    });
+    if(error)throw error;
+    showSync('done','Готово ✓');
+    document.getElementById('invite-code-display').textContent=code;
+    document.getElementById('m-invite').classList.add('open');
+  }catch(e){showSync('error','Ошибка: '+e.message);}
+}
+
+function switchSessionsTab(tab){sessionsTab=tab;renderSessions();}
+
+async function renderLeaderboard(prefix){
+  const list=document.getElementById('sessions-list');
+  list.innerHTML=prefix+`<div class="empty"><div class="loading-spinner" style="margin:0 auto"></div></div>`;
+  try{
+    const[{data:members,error:e1},{data:sessData,error:e2}]=await Promise.all([
+      sb.from('track_members').select('member_id').eq('track_id',cTrack.id),
+      sb.from('sessions').select('id,user_id').eq('track_id',cTrack.id)
+    ]);
+    if(e1)throw e1;
+    if(e2)throw e2;
+    const memberIds=[...new Set((members||[]).map(m=>m.member_id))];
+    const sessMap={};
+    (sessData||[]).forEach(s=>{sessMap[s.id]=s.user_id;});
+    const board=memberIds.map(mid=>{
+      const mySessIds=Object.entries(sessMap).filter(([,uid])=>uid===mid).map(([id])=>id);
+      const myRuns=D.runs.filter(r=>mySessIds.includes(r.sessionId));
+      const best=myRuns.length?Math.min(...myRuns.map(r=>r.bestSec)):null;
+      return{mid,best};
+    }).filter(e=>e.best!==null).sort((a,b)=>a.best-b.best);
+    if(!board.length){list.innerHTML=prefix+`<div class="empty"><div class="empty-icon">🏆</div><div class="empty-text">Нет результатов</div></div>`;return;}
+    const rows=board.map((e,i)=>{
+      const isFirst=i===0,isMe=e.mid===userId;
+      const pos=i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+      const label=isMe?`<span style="color:var(--red);font-weight:600">Ты</span>`:e.mid.slice(0,10)+'…';
+      const rowStyle=isFirst?'border-color:rgba(156,39,176,.5);background:rgba(156,39,176,.07)':isMe?'border-color:rgba(229,57,53,.5);background:rgba(229,57,53,.07)':'';
+      const timeStyle=isFirst?'rt-purple':isMe?'style="color:var(--red)"':'';
+      return`<div class="run-item" style="${rowStyle}">
+        <div><div class="run-num">${pos} ${label}</div></div>
+        <div class="run-time${isFirst?' rt-purple':''}" ${isMe&&!isFirst?'style="color:var(--red)"':''}>${s2t(e.best)}${isFirst?' 🟣':''}</div>
+      </div>`;
+    }).join('');
+    list.innerHTML=prefix+`<div class="sec-title">Рейтинг участников</div>`+rows;
+  }catch(e){list.innerHTML=prefix+`<div class="empty"><div class="empty-text">Ошибка загрузки</div></div>`;}
+}
 
 function renderSessions(){
   const list=document.getElementById('sessions-list'),empty=document.getElementById('sessions-empty');
-  const sess=D.sessions.filter(s=>s.trackId===cTrack.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  if(!sess.length){list.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
+  const tabs=`<div class="mode-tabs" style="margin-bottom:8px">
+    <div class="mode-tab${sessionsTab==='sessions'?' active':''}" onclick="switchSessionsTab('sessions')">Мои сессии</div>
+    <div class="mode-tab${sessionsTab==='leaders'?' active':''}" onclick="switchSessionsTab('leaders')">🏆 Лидеры</div>
+  </div>`;
+  const inviteBtn=`<div class="card clickable" onclick="inviteToTrack()" style="border-color:rgba(255,255,255,.12)">
+    <div style="display:flex;align-items:center;gap:10px;padding:11px;color:var(--white)">
+      <span style="font-size:18px">👥</span>
+      <span style="font-family:Rajdhani,sans-serif;font-size:15px;font-weight:700">ПРИГЛАСИТЬ</span>
+    </div>
+  </div>`;
+  if(sessionsTab==='leaders'){renderLeaderboard(tabs+inviteBtn);return;}
+  const sess=D.sessions.filter(s=>s.trackId===cTrack.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!sess.length){list.innerHTML=tabs+inviteBtn;empty.style.display='block';return;}
   const allRuns=D.runs.filter(r=>sess.some(s=>s.id===r.sessionId));
   const trackBest=allRuns.length?Math.min(...allRuns.map(r=>r.bestSec)):null;
   const rBar=rightsBar(cTrack,trackBest);
@@ -521,7 +629,7 @@ function renderSessions(){
       <span style="font-family:Rajdhani,sans-serif;font-size:15px;font-weight:700">ПРОГРЕСС НА ТРАССЕ</span>
     </div>
   </div>`;
-  list.innerHTML=rBar+prog+sess.map(s=>{
+  list.innerHTML=tabs+inviteBtn+rBar+prog+sess.map(s=>{
     const runs=D.runs.filter(r=>r.sessionId===s.id);
     const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
     const date=new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});

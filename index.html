@@ -152,5 +152,37 @@
   </div>
 </div>
 
+<!-- MODAL: JOIN BY CODE -->
+<div class="modal-overlay" id="m-join">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Войти по коду</div>
+    <div class="fg">
+      <label>Код приглашения</label>
+      <input class="time-big" type="text" id="join-code-input" placeholder="XXXXXX" maxlength="6" style="text-transform:uppercase;letter-spacing:6px">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('m-join')">Отмена</button>
+      <button class="btn btn-p" onclick="joinByCode()">Войти</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: INVITE -->
+<div class="modal-overlay" id="m-invite">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Приглашение на трассу</div>
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:13px;color:var(--gray2);margin-bottom:12px">Твой код приглашения:</div>
+      <div id="invite-code-display" style="font-family:'Rajdhani',sans-serif;font-size:38px;font-weight:700;letter-spacing:8px;color:var(--red)"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('m-invite')">Закрыть</button>
+      <button class="btn btn-p" id="copy-invite-btn" onclick="navigator.clipboard.writeText(document.getElementById('invite-code-display').textContent);document.getElementById('copy-invite-btn').textContent='Скопировано ✓'">Скопировать</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
