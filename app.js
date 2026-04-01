@@ -9,6 +9,7 @@ let selWeather='',nav=[],runMode='best';
 let charts={},photoData=null,lapInputs=[];
 let editingTrackId=null,editingSessionId=null,editingRunId=null;
 let sessionsTab='sessions';
+let runsTab='mine';
 
 function getTelegramUserId(){
   return new Promise((resolve) => {
@@ -673,48 +674,86 @@ function renderSessions(){
 
 function openSession(sid){
   cSession=D.sessions.find(s=>s.id===sid);
+  runsTab='mine';
   const d=new Date(cSession.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}).toUpperCase();
   navigate('runs',d,renderRuns);
 }
 
-function renderRuns(){
+function switchRunsTab(tab){runsTab=tab;renderRuns();}
+
+async function renderRuns(){
   const el=document.getElementById('runs-content');
-  const runs=D.runs.filter(r=>r.sessionId===cSession.id).sort((a,b)=>a.createdAt-b.createdAt);
-  const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
-  const avg=runs.length?runs.reduce((a,b)=>a+b.bestSec,0)/runs.length:null;
-  const laps=runs.reduce((a,b)=>a+(b.laps||0),0);
+  const allSessionRuns=D.runs.filter(r=>r.sessionId===cSession.id).sort((a,b)=>a.createdAt-b.createdAt);
   const banner=cTrack.photo?`<div class="track-banner"><img src="${cTrack.photo}"><div class="banner-name">${cTrack.name}</div></div>`:`<div class="track-banner"><div class="track-banner-ph"><span>🏎️</span><p>${cTrack.name}</p></div></div>`;
   const date=new Date(cSession.date).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
   const sinfo=`<div style="margin-bottom:8px;padding:9px 11px;background:var(--s2);border:1px solid var(--border);border-radius:9px">
     <div style="font-size:11px;color:var(--gray2)">${date}${cSession.weather?' · '+cSession.weather:''}</div>
     ${cSession.notes?`<div style="font-size:10px;color:var(--gray);margin-top:1px">${cSession.notes}</div>`:''}
   </div>`;
-  const stats=`<div class="stat-row g4">
-    <div class="stat-card"><div class="sv sv-purple">${best?s2t(best):'—'}</div><div class="sl">Рекорд</div></div>
-    <div class="stat-card"><div class="sv">${runs.length}</div><div class="sl">Заездов</div></div>
-    <div class="stat-card"><div class="sv">${avg?s2t(avg):'—'}</div><div class="sl">Среднее</div></div>
-    <div class="stat-card"><div class="sv">${laps||'—'}</div><div class="sl">Кругов</div></div>
+  const tabs=`<div class="mode-tabs" style="margin-bottom:8px">
+    <div class="mode-tab${runsTab==='mine'?' active':''}" onclick="switchRunsTab('mine')">Мои заезды</div>
+    <div class="mode-tab${runsTab==='all'?' active':''}" onclick="switchRunsTab('all')">Все участники</div>
   </div>`;
-  const rBar=rightsBar(cTrack,best);
-  const chart=runs.length>1?`<div class="chart-card"><div class="chart-title">Лучшие времена заездов</div><canvas id="rc" height="80"></canvas></div>`:'';
-  const rlist=runs.length?`<div class="sec-title">Заезды</div>`+runs.map((r,i)=>{
-    const ib=r.bestSec===best;
-    const hasLaps=r.lapTimes&&r.lapTimes.length>0;
-    return `<div class="run-item${ib?' best-run':''}${hasLaps?' clickable':''}"${hasLaps?` onclick="openRunDetail('${r.id}')"`:''}>
-      <div style="flex:1">
-        <div class="run-num">Заезд ${i+1}${r.laps?' · '+r.laps+' кр.':''}${r.kart?' · '+r.kart:''}</div>
-        ${r.notes?`<div class="run-note">${r.notes}</div>`:''}
-        ${hasLaps?`<div class="run-note" style="color:rgba(229,57,53,.7)">▶ Нажми для деталей</div>`:''}
-        ${r.user_id===userId?`<div class="action-row">
-          <button class="act-btn edit-btn" onclick="event.stopPropagation();editRun('${r.id}')">✏️</button>
-          <button class="act-btn danger" onclick="event.stopPropagation();delRun('${r.id}')">✕</button>
-        </div>`:''}
-      </div>
-      <div class="run-time${ib?' rt-purple':''}" style="margin-left:8px">${r.bestStr}${ib?' 🟣':''}</div>
+
+  if(runsTab==='mine'){
+    const runs=allSessionRuns.filter(r=>r.user_id===userId);
+    const best=runs.length?Math.min(...runs.map(r=>r.bestSec)):null;
+    const avg=runs.length?runs.reduce((a,b)=>a+b.bestSec,0)/runs.length:null;
+    const laps=runs.reduce((a,b)=>a+(b.laps||0),0);
+    const stats=`<div class="stat-row g4">
+      <div class="stat-card"><div class="sv sv-purple">${best?s2t(best):'—'}</div><div class="sl">Рекорд</div></div>
+      <div class="stat-card"><div class="sv">${runs.length}</div><div class="sl">Заездов</div></div>
+      <div class="stat-card"><div class="sv">${avg?s2t(avg):'—'}</div><div class="sl">Среднее</div></div>
+      <div class="stat-card"><div class="sv">${laps||'—'}</div><div class="sl">Кругов</div></div>
     </div>`;
-  }).join(''):`<div class="empty"><div class="empty-icon">⏱️</div><div class="empty-text">Нет заездов. Нажми +</div></div>`;
-  el.innerHTML=banner+sinfo+stats+rBar+chart+rlist;
-  if(runs.length>1)setTimeout(()=>drawLineChart('rc',runs.map((_,i)=>`#${i+1}`),runs.map(r=>r.bestSec),best),50);
+    const rBar=rightsBar(cTrack,best);
+    const chart=runs.length>1?`<div class="chart-card"><div class="chart-title">Лучшие времена заездов</div><canvas id="rc" height="80"></canvas></div>`:'';
+    const rlist=runs.length?`<div class="sec-title">Заезды</div>`+runs.map((r,i)=>{
+      const ib=r.bestSec===best;
+      const hasLaps=r.lapTimes&&r.lapTimes.length>0;
+      return `<div class="run-item${ib?' best-run':''}${hasLaps?' clickable':''}"${hasLaps?` onclick="openRunDetail('${r.id}')"`:''}>
+        <div style="flex:1">
+          <div class="run-num">Заезд ${i+1}${r.laps?' · '+r.laps+' кр.':''}${r.kart?' · '+r.kart:''}</div>
+          ${r.notes?`<div class="run-note">${r.notes}</div>`:''}
+          ${hasLaps?`<div class="run-note" style="color:rgba(229,57,53,.7)">▶ Нажми для деталей</div>`:''}
+          <div class="action-row">
+            <button class="act-btn edit-btn" onclick="event.stopPropagation();editRun('${r.id}')">✏️</button>
+            <button class="act-btn danger" onclick="event.stopPropagation();delRun('${r.id}')">✕</button>
+          </div>
+        </div>
+        <div class="run-time${ib?' rt-purple':''}" style="margin-left:8px">${r.bestStr}${ib?' 🟣':''}</div>
+      </div>`;
+    }).join(''):`<div class="empty"><div class="empty-icon">⏱️</div><div class="empty-text">Нет заездов. Нажми +</div></div>`;
+    el.innerHTML=banner+sinfo+tabs+stats+rBar+chart+rlist;
+    if(runs.length>1)setTimeout(()=>drawLineChart('rc',runs.map((_,i)=>`#${i+1}`),runs.map(r=>r.bestSec),best),50);
+  } else {
+    el.innerHTML=banner+sinfo+tabs+`<div id="all-runs-content"><div class="loading-spinner" style="margin:20px auto;display:block"></div></div>`;
+    const{data:members}=await sb.from('track_members').select('member_id,username').eq('track_id',cTrack.id);
+    const usernameMap={};
+    (members||[]).forEach(m=>{usernameMap[m.member_id]=m.username||'Гонщик';});
+    const best=allSessionRuns.length?Math.min(...allSessionRuns.map(r=>r.bestSec)):null;
+    const rlist=allSessionRuns.length?`<div class="sec-title">Все заезды</div>`+allSessionRuns.map((r,i)=>{
+      const ib=r.bestSec===best;
+      const isMe=r.user_id===userId;
+      const uname=isMe?'Ты':usernameMap[r.user_id]||'Гонщик';
+      const hasLaps=r.lapTimes&&r.lapTimes.length>0;
+      return `<div class="run-item${ib?' best-run':''}${hasLaps?' clickable':''}"${hasLaps?` onclick="openRunDetail('${r.id}')"`:''}>
+        <div style="flex:1">
+          <div class="run-num">Заезд ${i+1}${r.laps?' · '+r.laps+' кр.':''}${r.kart?' · '+r.kart:''}</div>
+          <div class="run-note" style="${isMe?'color:var(--red)':''}">👤 ${uname}</div>
+          ${r.notes?`<div class="run-note">${r.notes}</div>`:''}
+          ${hasLaps?`<div class="run-note" style="color:rgba(229,57,53,.7)">▶ Нажми для деталей</div>`:''}
+          ${isMe?`<div class="action-row">
+            <button class="act-btn edit-btn" onclick="event.stopPropagation();editRun('${r.id}')">✏️</button>
+            <button class="act-btn danger" onclick="event.stopPropagation();delRun('${r.id}')">✕</button>
+          </div>`:''}
+        </div>
+        <div class="run-time${ib?' rt-purple':''}" style="margin-left:8px">${r.bestStr}${ib?' 🟣':''}</div>
+      </div>`;
+    }).join(''):`<div class="empty"><div class="empty-icon">⏱️</div><div class="empty-text">Нет заездов</div></div>`;
+    const allEl=document.getElementById('all-runs-content');
+    if(allEl)allEl.innerHTML=rlist;
+  }
 }
 
 function openRunDetail(rid){cRun=D.runs.find(r=>r.id===rid);navigate('run-detail','ДЕТАЛИ ЗАЕЗДА',renderRunDetail);}
