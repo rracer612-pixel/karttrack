@@ -58,6 +58,14 @@ function getTelegramUserId(){
   });
 }
 
+function toast(msg){
+  const el=document.createElement('div');
+  el.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(40,40,40,.97);color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;white-space:nowrap;transition:opacity .4s';
+  el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),400);},2200);
+}
+
 function showSync(state,text){
   const el=document.getElementById('sync-indicator');
   const dot=document.getElementById('sync-dot');
@@ -110,9 +118,9 @@ async function loadFromCloud(){
       sb.from('runs').select('*').eq('user_id',userId).order('created_at'),
     ]);
     if(t.error)throw t.error;
-    D.tracks=(t.data||[]).map(row=>({id:row.id,name:row.name,city:row.city,length:row.length,photo:row.photo,rightsTime:row.rights_time,noRights:row.no_rights,createdAt:row.created_at}));
-    D.sessions=(s.data||[]).map(row=>({id:row.id,trackId:row.track_id,date:row.date,weather:row.weather,notes:row.notes,createdAt:row.created_at}));
-    D.runs=(r.data||[]).map(row=>({id:row.id,sessionId:row.session_id,bestSec:row.best_sec,bestStr:row.best_str,lapTimes:row.lap_times||[],laps:row.laps,kart:row.kart,notes:row.notes,createdAt:row.created_at}));
+    D.tracks=(t.data||[]).map(row=>({id:row.id,user_id:row.user_id,name:row.name,city:row.city,length:row.length,photo:row.photo,rightsTime:row.rights_time,noRights:row.no_rights,createdAt:row.created_at}));
+    D.sessions=(s.data||[]).map(row=>({id:row.id,user_id:row.user_id,trackId:row.track_id,date:row.date,weather:row.weather,notes:row.notes,createdAt:row.created_at}));
+    D.runs=(r.data||[]).map(row=>({id:row.id,user_id:row.user_id,sessionId:row.session_id,bestSec:row.best_sec,bestStr:row.best_str,lapTimes:row.lap_times||[],laps:row.laps,kart:row.kart,notes:row.notes,createdAt:row.created_at}));
     return true;
   }catch(e){console.error('Load error:',e);return false;}
 }
@@ -154,9 +162,9 @@ async function init(){
       sb.from('runs').select('*').eq('user_id',userId).order('created_at'),
     ]);
     if(t.error)throw t.error;
-    D.tracks=(t.data||[]).map(row=>({id:row.id,name:row.name,city:row.city,length:row.length,photo:row.photo,rightsTime:row.rights_time,noRights:row.no_rights,createdAt:row.created_at}));
-    D.sessions=(s.data||[]).map(row=>({id:row.id,trackId:row.track_id,date:row.date,weather:row.weather,notes:row.notes,createdAt:row.created_at}));
-    D.runs=(r.data||[]).map(row=>({id:row.id,sessionId:row.session_id,bestSec:row.best_sec,bestStr:row.best_str,lapTimes:row.lap_times||[],laps:row.laps,kart:row.kart,notes:row.notes,createdAt:row.created_at}));
+    D.tracks=(t.data||[]).map(row=>({id:row.id,user_id:row.user_id,name:row.name,city:row.city,length:row.length,photo:row.photo,rightsTime:row.rights_time,noRights:row.no_rights,createdAt:row.created_at}));
+    D.sessions=(s.data||[]).map(row=>({id:row.id,user_id:row.user_id,trackId:row.track_id,date:row.date,weather:row.weather,notes:row.notes,createdAt:row.created_at}));
+    D.runs=(r.data||[]).map(row=>({id:row.id,user_id:row.user_id,sessionId:row.session_id,bestSec:row.best_sec,bestStr:row.best_str,lapTimes:row.lap_times||[],laps:row.laps,kart:row.kart,notes:row.notes,createdAt:row.created_at}));
 
     // ✅ Кэшируем в localStorage
     try {
@@ -259,6 +267,7 @@ function selW(el,v){document.querySelectorAll('.w-chip').forEach(c=>c.classList.
 
 function editTrack(tid){
   const t=D.tracks.find(x=>x.id===tid);if(!t)return;
+  if(t.user_id&&t.user_id!==userId){toast('Нельзя редактировать чужие данные');return;}
   editingTrackId=tid;photoData=t.photo||null;
   document.getElementById('mt-title').textContent='Редактировать трассу';
   document.getElementById('tn').value=t.name||'';
@@ -276,6 +285,7 @@ function editTrack(tid){
 }
 function editSession(sid){
   const s=D.sessions.find(x=>x.id===sid);if(!s)return;
+  if(s.user_id&&s.user_id!==userId){toast('Нельзя редактировать чужие данные');return;}
   editingSessionId=sid;selWeather=s.weather||'';
   document.getElementById('ms-title').textContent='Редактировать сессию';
   document.getElementById('sd').value=s.date||'';
@@ -285,6 +295,7 @@ function editSession(sid){
 }
 function editRun(rid){
   const r=D.runs.find(x=>x.id===rid);if(!r)return;
+  if(r.user_id&&r.user_id!==userId){toast('Нельзя редактировать чужие данные');return;}
   editingRunId=rid;lapInputs=[];
   document.getElementById('mr-title').textContent='Редактировать заезд';
   document.getElementById('rk').value=r.kart||'';
@@ -313,12 +324,13 @@ async function saveTrack(){
       const id=uid();
       const{error}=await sb.from('tracks').insert({...row,id,created_at:Date.now()});
       if(error)throw error;
-      D.tracks.push({id,name,city:row.city,length:row.length,photo,rightsTime,noRights,createdAt:Date.now()});
+      D.tracks.push({id,user_id:userId,name,city:row.city,length:row.length,photo,rightsTime,noRights,createdAt:Date.now()});
     }
     showSync('done','Сохранено ✓');
     closeModal('mt');photoData=null;
     if(editingTrackId&&cTrack?.id===editingTrackId){cTrack=D.tracks.find(t=>t.id===editingTrackId);renderSessions();}
     else renderTracks();
+    checkAchievements();
   }catch(e){console.error(e);showSync('error','Ошибка: '+e.message);}
 }
 
@@ -337,9 +349,9 @@ async function saveSession(){
       const id=uid();
       const{error}=await sb.from('sessions').insert({...row,id,created_at:Date.now()});
       if(error)throw error;
-      D.sessions.push({id,trackId:cTrack.id,date,weather:selWeather,notes:row.notes,createdAt:Date.now()});
+      D.sessions.push({id,user_id:userId,trackId:cTrack.id,date,weather:selWeather,notes:row.notes,createdAt:Date.now()});
     }
-    showSync('done','Сохранено ✓');closeModal('ms');renderSessions();
+    showSync('done','Сохранено ✓');closeModal('ms');renderSessions();checkAchievements();
   }catch(e){console.error(e);showSync('error','Ошибка: '+e.message);}
 }
 
@@ -372,13 +384,15 @@ async function saveRun(){
       const id=uid();
       const{error}=await sb.from('runs').insert({...row,id,created_at:Date.now()});
       if(error)throw error;
-      D.runs.push({id,sessionId:cSession.id,bestSec,bestStr:s2t(bestSec),lapTimes,laps,kart,notes,createdAt:Date.now()});
+      D.runs.push({id,user_id:userId,sessionId:cSession.id,bestSec,bestStr:s2t(bestSec),lapTimes,laps,kart,notes,createdAt:Date.now()});
     }
-    showSync('done','Сохранено ✓');closeModal('mr');renderRuns();
+    showSync('done','Сохранено ✓');closeModal('mr');renderRuns();checkAchievements();
   }catch(e){console.error(e);showSync('error','Ошибка: '+e.message);}
 }
 
 async function delTrack(tid){
+  const t=D.tracks.find(x=>x.id===tid);
+  if(t?.user_id&&t.user_id!==userId){toast('Нельзя удалять чужие данные');return;}
   if(!confirm('Удалить трассу и все данные?'))return;
   showSync('syncing','Удаляем...');
   try{
@@ -392,6 +406,8 @@ async function delTrack(tid){
   }catch(e){showSync('error','Ошибка удаления');}
 }
 async function delSession(sid){
+  const s=D.sessions.find(x=>x.id===sid);
+  if(s?.user_id&&s.user_id!==userId){toast('Нельзя удалять чужие данные');return;}
   if(!confirm('Удалить сессию?'))return;
   showSync('syncing','Удаляем...');
   try{
@@ -403,6 +419,8 @@ async function delSession(sid){
   }catch(e){showSync('error','Ошибка удаления');}
 }
 async function delRun(rid){
+  const r=D.runs.find(x=>x.id===rid);
+  if(r?.user_id&&r.user_id!==userId){toast('Нельзя удалять чужие данные');return;}
   if(!confirm('Удалить заезд?'))return;
   showSync('syncing','Удаляем...');
   try{
@@ -499,13 +517,13 @@ async function joinByCode(){
     if(!D.tracks.find(t=>t.id===trackId)){
       const{data:td,error:e3}=await sb.from('tracks').select('*').eq('id',trackId).single();
       if(e3)throw e3;
-      D.tracks.push({id:td.id,name:td.name,city:td.city,length:td.length,photo:td.photo,rightsTime:td.rights_time,noRights:td.no_rights,createdAt:td.created_at});
+      D.tracks.push({id:td.id,user_id:td.user_id,name:td.name,city:td.city,length:td.length,photo:td.photo,rightsTime:td.rights_time,noRights:td.no_rights,createdAt:td.created_at});
       const{data:sd}=await sb.from('sessions').select('*').eq('track_id',trackId).order('created_at');
-      if(sd)D.sessions.push(...sd.map(row=>({id:row.id,trackId:row.track_id,date:row.date,weather:row.weather,notes:row.notes,createdAt:row.created_at})).filter(s=>!D.sessions.find(x=>x.id===s.id)));
+      if(sd)D.sessions.push(...sd.map(row=>({id:row.id,user_id:row.user_id,trackId:row.track_id,date:row.date,weather:row.weather,notes:row.notes,createdAt:row.created_at})).filter(s=>!D.sessions.find(x=>x.id===s.id)));
       const sids=(sd||[]).map(s=>s.id);
       if(sids.length){
         const{data:rd}=await sb.from('runs').select('*').in('session_id',sids).order('created_at');
-        if(rd)D.runs.push(...rd.map(row=>({id:row.id,sessionId:row.session_id,bestSec:row.best_sec,bestStr:row.best_str,lapTimes:row.lap_times||[],laps:row.laps,kart:row.kart,notes:row.notes,createdAt:row.created_at})).filter(r=>!D.runs.find(x=>x.id===r.id)));
+        if(rd)D.runs.push(...rd.map(row=>({id:row.id,user_id:row.user_id,sessionId:row.session_id,bestSec:row.best_sec,bestStr:row.best_str,lapTimes:row.lap_times||[],laps:row.laps,kart:row.kart,notes:row.notes,createdAt:row.created_at})).filter(r=>!D.runs.find(x=>x.id===r.id)));
       }
     }
     showSync('done','Трасса добавлена ✓');
@@ -537,10 +555,10 @@ function renderTracks(){
           ${rightsAch?'<span class="badge b-green">🏆 Права</span>':''}
           ${t.rightsTime&&!t.noRights&&best&&!rightsAch?`<span class="badge b-yellow">🎯 ${s2t(t.rightsTime)}</span>`:''}
         </div>
-        <div class="action-row">
+        ${t.user_id===userId?`<div class="action-row">
           <button class="act-btn edit-btn" onclick="event.stopPropagation();editTrack('${t.id}')">✏️ Изменить</button>
           <button class="act-btn danger" onclick="event.stopPropagation();delTrack('${t.id}')">✕ Удалить</button>
-        </div>
+        </div>`:''}
       </div>
     </div>`;
   }).join('')+joinBtn;
@@ -644,10 +662,10 @@ function renderSessions(){
           </div>
           ${s.notes?`<div style="font-size:11px;color:var(--gray2);margin-top:3px">${s.notes}</div>`:''}
         </div>
-        <div class="action-row">
+        ${s.user_id===userId?`<div class="action-row">
           <button class="act-btn edit-btn" onclick="editSession('${s.id}')">✏️ Изменить</button>
           <button class="act-btn danger" onclick="delSession('${s.id}')">✕ Удалить</button>
-        </div>
+        </div>`:''}
       </div>
     </div>`;
   }).join('');
@@ -687,10 +705,10 @@ function renderRuns(){
         <div class="run-num">Заезд ${i+1}${r.laps?' · '+r.laps+' кр.':''}${r.kart?' · '+r.kart:''}</div>
         ${r.notes?`<div class="run-note">${r.notes}</div>`:''}
         ${hasLaps?`<div class="run-note" style="color:rgba(229,57,53,.7)">▶ Нажми для деталей</div>`:''}
-        <div class="action-row">
+        ${r.user_id===userId?`<div class="action-row">
           <button class="act-btn edit-btn" onclick="event.stopPropagation();editRun('${r.id}')">✏️</button>
           <button class="act-btn danger" onclick="event.stopPropagation();delRun('${r.id}')">✕</button>
-        </div>
+        </div>`:''}
       </div>
       <div class="run-time${ib?' rt-purple':''}" style="margin-left:8px">${r.bestStr}${ib?' 🟣':''}</div>
     </div>`;
@@ -738,7 +756,7 @@ function renderProgress(){
   setTimeout(()=>drawLineChart('pc',bests.map(s=>new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})),bests.map(s=>s.best),ab),50);
 }
 
-function renderStats(){
+async function renderStats(){
   const el=document.getElementById('stats-content');
   const totalSess=D.sessions.length,totalRuns=D.runs.length;
   const totalLaps=D.runs.reduce((a,b)=>a+(b.laps||0),0);
@@ -760,7 +778,121 @@ function renderStats(){
     </div>
     ${overallBest?`<div style="padding:9px 11px;background:var(--s2);border:1px solid var(--border);border-radius:9px;margin-bottom:8px;font-size:11px;color:var(--gray2)">🏆 Рекорд на <span style="color:var(--white);font-weight:600">${bestTrackName}</span></div>`:''}
     ${trackStats.length?`<div class="sec-title">По трассам</div>`+trackStats.map(t=>`<div class="run-item"><div><div style="font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700">${t.name}</div><div class="run-note">${t.sessions} сессий · ${t.runs} заездов</div></div><div class="run-time${t.best?' rt-purple':''}">${t.best?s2t(t.best):'—'}</div></div>`).join(''):''}
-    ${!totalSess?`<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Данных пока нет</div></div>`:''}`;
+    ${!totalSess?`<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Данных пока нет</div></div>`:''}
+    <div class="sec-title">🏆 Достижения</div>
+    <div id="ach-section"><div class="loading-spinner" style="margin:20px auto;display:block"></div></div>`;
+
+  const{data:achData}=await sb.from('achievements').select('*').eq('user_id',userId);
+  const achUnlocked=new Set((achData||[]).map(a=>a.code));
+  const achMap={};(achData||[]).forEach(a=>{achMap[a.code]=a;});
+  const unlockedCount=ACHIEVEMENTS_DEF.filter(a=>achUnlocked.has(a.code)).length;
+  const achSection=document.getElementById('ach-section');
+  if(!achSection)return;
+  achSection.innerHTML=`<div style="font-size:11px;color:var(--gray2);margin-bottom:8px">${unlockedCount} / ${ACHIEVEMENTS_DEF.length} разблокировано</div>`+
+    ACHIEVEMENTS_DEF.map(a=>{
+      const isUnlocked=achUnlocked.has(a.code);
+      const date=isUnlocked?new Date(achMap[a.code].unlocked_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'}):'';
+      return`<div class="run-item" style="${isUnlocked?'':'opacity:.4'}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px;min-width:28px;text-align:center">${a.icon}</span>
+          <div>
+            <div style="font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700">${a.name}</div>
+            <div class="run-note">${isUnlocked?'Разблокировано '+date:a.desc}</div>
+          </div>
+        </div>
+        ${isUnlocked?'<span style="color:var(--green);font-size:13px;font-weight:700">✓</span>':''}
+      </div>`;
+    }).join('');
+}
+
+const ACHIEVEMENTS_DEF=[
+  {code:'first_session',icon:'🏁',name:'Новичок',desc:'1 сессия'},
+  {code:'amateur',icon:'⚡',name:'Любитель',desc:'5 сессий'},
+  {code:'enthusiast',icon:'🔥',name:'Энтузиаст',desc:'15 сессий'},
+  {code:'racer',icon:'🏎️',name:'Гонщик',desc:'30 сессий'},
+  {code:'veteran',icon:'👑',name:'Ветеран',desc:'50 сессий'},
+  {code:'first_progress',icon:'📈',name:'Первый прогресс',desc:'Улучши время на 1 сек'},
+  {code:'faster',icon:'🚀',name:'Быстрее',desc:'Улучши время на 5 сек'},
+  {code:'sharp_progress',icon:'⚡',name:'Резкий прогресс',desc:'Улучши время на 10 сек'},
+  {code:'purple_sector',icon:'🟣',name:'Фиолетовый сектор',desc:'Побей личный рекорд'},
+  {code:'lap_king',icon:'💜',name:'Король круга',desc:'Лучшее время на трассе среди всех'},
+  {code:'explorer',icon:'🗺️',name:'Исследователь',desc:'2 трассы'},
+  {code:'traveler',icon:'🌍',name:'Путешественник',desc:'5 трасс'},
+  {code:'master',icon:'🏆',name:'Мастер',desc:'Права на 1 трассе'},
+  {code:'champion',icon:'👑',name:'Чемпион',desc:'Права на 3 трассах'},
+  {code:'legend',icon:'💎',name:'Легенда',desc:'Права на 5 трассах'},
+  {code:'first_laps',icon:'⏱️',name:'Первые круги',desc:'1 заезд с кругами'},
+  {code:'analyst',icon:'📊',name:'Аналитик',desc:'10 заездов с кругами'},
+  {code:'perfectionist',icon:'🎯',name:'Перфекционист',desc:'50 заездов с кругами'},
+];
+
+async function checkAchievements(){
+  if(!userId)return;
+  const{data:mySessData}=await sb.from('sessions').select('id,track_id').eq('user_id',userId);
+  const mySessIds=new Set((mySessData||[]).map(s=>s.id));
+  const myRuns=D.runs.filter(r=>mySessIds.has(r.sessionId));
+  const unlocked=new Set();
+
+  // СЕССИИ
+  const sessCount=mySessIds.size;
+  if(sessCount>=1)unlocked.add('first_session');
+  if(sessCount>=5)unlocked.add('amateur');
+  if(sessCount>=15)unlocked.add('enthusiast');
+  if(sessCount>=30)unlocked.add('racer');
+  if(sessCount>=50)unlocked.add('veteran');
+
+  // ТРАССЫ
+  const myTrackIds=[...new Set((mySessData||[]).map(s=>s.track_id))];
+  if(myTrackIds.length>=2)unlocked.add('explorer');
+  if(myTrackIds.length>=5)unlocked.add('traveler');
+
+  // ПРАВА
+  const rightsCount=D.tracks.filter(t=>{
+    if(t.noRights||!t.rightsTime)return false;
+    const tSessIds=(mySessData||[]).filter(s=>s.track_id===t.id).map(s=>s.id);
+    const best=myRuns.filter(r=>tSessIds.includes(r.sessionId)).reduce((mn,r)=>r.bestSec<mn?r.bestSec:mn,Infinity);
+    return isFinite(best)&&best<=t.rightsTime;
+  }).length;
+  if(rightsCount>=1)unlocked.add('master');
+  if(rightsCount>=3)unlocked.add('champion');
+  if(rightsCount>=5)unlocked.add('legend');
+
+  // ПРОГРЕСС
+  let maxImp=0,beatBest=false;
+  for(const tid of myTrackIds){
+    const tSessIds=(mySessData||[]).filter(s=>s.track_id===tid).map(s=>s.id);
+    const bests=D.sessions.filter(s=>tSessIds.includes(s.id)).sort((a,b)=>new Date(a.date)-new Date(b.date))
+      .map(s=>{const runs=myRuns.filter(r=>r.sessionId===s.id);return runs.length?Math.min(...runs.map(r=>r.bestSec)):null;})
+      .filter(b=>b!==null);
+    for(let i=1;i<bests.length;i++){
+      const imp=bests[i-1]-bests[i];
+      if(imp>maxImp)maxImp=imp;
+      if(imp>0)beatBest=true;
+    }
+  }
+  if(maxImp>=1)unlocked.add('first_progress');
+  if(maxImp>=5)unlocked.add('faster');
+  if(maxImp>=10)unlocked.add('sharp_progress');
+  if(beatBest)unlocked.add('purple_sector');
+
+  // ЛАП КИНГ
+  for(const tid of myTrackIds){
+    const tSessIds=(mySessData||[]).filter(s=>s.track_id===tid).map(s=>s.id);
+    const myBest=myRuns.filter(r=>tSessIds.includes(r.sessionId)).reduce((mn,r)=>r.bestSec<mn?r.bestSec:mn,Infinity);
+    const allSessIds=D.sessions.filter(s=>s.trackId===tid).map(s=>s.id);
+    const allBest=D.runs.filter(r=>allSessIds.includes(r.sessionId)).reduce((mn,r)=>r.bestSec<mn?r.bestSec:mn,Infinity);
+    if(isFinite(myBest)&&myBest===allBest){unlocked.add('lap_king');break;}
+  }
+
+  // ЗАЕЗДЫ С КРУГАМИ
+  const lapRuns=myRuns.filter(r=>r.lapTimes&&r.lapTimes.length>0);
+  if(lapRuns.length>=1)unlocked.add('first_laps');
+  if(lapRuns.length>=10)unlocked.add('analyst');
+  if(lapRuns.length>=50)unlocked.add('perfectionist');
+
+  if(!unlocked.size)return;
+  const rows=[...unlocked].map(code=>({id:userId+'_'+code,user_id:userId,code,unlocked_at:Date.now()}));
+  await sb.from('achievements').upsert(rows,{onConflict:'id',ignoreDuplicates:true});
 }
 
 document.querySelectorAll('.modal-overlay').forEach(m=>{
